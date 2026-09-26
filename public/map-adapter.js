@@ -14,6 +14,7 @@
 //   map.on("click" | "moveend" | "zoomend", fn)   click gets {lat,lng}
 //   map.addControl(element)       top-right corner
 //   map.outline(polys)            polys: [[outerRing, ...holes]] with [lng,lat] points -> { remove() }
+//   map.line(latlngs, {color, weight, dash}) latlngs: [[lat,lng], ...] -> { remove() }
 //   map.setTraffic(on)            Google only
 
 (function () {
@@ -69,6 +70,11 @@
         else lm.on(evt, () => fn());
       },
       addControl(elm) { new Ctl(elm, { position: "topright" }).addTo(lm); },
+      line(pts, st = {}) {
+        const casing = L.polyline(pts, { color: "#fff", weight: (st.weight || 6) + 4, opacity: 0.9, interactive: false }).addTo(lm);
+        const l = L.polyline(pts, { color: st.color || "#0b6e8a", weight: st.weight || 6, opacity: 0.95, dashArray: st.dash ? "8 8" : null, interactive: false }).addTo(lm);
+        return { remove: () => { l.remove(); casing.remove(); } };
+      },
       outline(polys) {
         const p = L.polygon(polys.map(poly => poly.map(r => r.map(([x, y]) => [y, x]))), OUTLINE_STYLE_L).addTo(lm);
         return { remove: () => p.remove() };
@@ -191,6 +197,12 @@
         else if (evt === "zoomend") gm.addListener("zoom_changed", () => fn());
       },
       addControl(elm) { elm.style.margin = "10px"; gm.controls[g.ControlPosition.TOP_RIGHT].push(elm); },
+      line(pts, st = {}) {
+        const path = pts.map(([y, x]) => ({ lat: y, lng: x }));
+        const casing = new g.Polyline({ map: gm, path, strokeColor: "#fff", strokeWeight: (st.weight || 6) + 4, strokeOpacity: 0.9, clickable: false, zIndex: 10 });
+        const l = new g.Polyline({ map: gm, path, strokeColor: st.color || "#0b6e8a", strokeWeight: st.weight || 6, strokeOpacity: 0.95, clickable: false, zIndex: 11 });
+        return { remove: () => { l.setMap(null); casing.setMap(null); } };
+      },
       outline(polys) {
         const shapes = polys.map(poly => new g.Polygon({
           map: gm, paths: poly.map(r => r.map(([x, y]) => ({ lat: y, lng: x }))), clickable: false,

@@ -191,8 +191,61 @@ async function handleReports(req, res, pathname) {
   }
 }
 
+const routing = require("./routing");
+
+// Simple per-IP limiter so one visitor can't use up the free OpenRouteService quota
+const buckets = new Map();
+function allowRate(key, limit, windowMs) {
+  const now = Date.now();
+  const list = (buckets.get(key) || []).filter((t) => now - t < windowMs);
+  if (list.length >= limit) return false;
+  list.push(now);
+  buckets.set(key, list);
+  return true;
+}
+setInterval(() => buckets.clear(), 60 * 60 * 1000).unref();
+
+// Every flood we know of (agency feed + visitor reports), with a severity category
+async function allFloods() {
+  const [official, community] = await Promise.all([
+    getRoadData().then((b) => JSON.parse(b).reports).catch(() => []),
+    reports.list().catch(() => []),
+  ]);
+  return [
+    ...official.map((r) => ({ id: "o" + r.id, lat: r.lat, lng: r.lng, depth: r.depth, closed: r.closed, title: r.title })),
+    ...community.map((r) => ({ id: "c" + r.id, lat: r.lat, lng: r.lng, depth: r.depth, closed: r.closed, title: { th: r.note || "รายงานจากผู้ใช้", en: r.note || "Visitor report" } })),
+  ].map((f) => ({ ...f, cat: routing.roadCat(f) }));
+}
+
+async function handleRouting(req, res, url) {
+  const ip = clientIp(req);
+  try {
+    if (url.pathname === "/api/geocode" && req.method === "GET") {
+      if (!allowRate("g" + ip, 120, 10 * 60 * 1000)) return sendJson(res, 429, { error: "Too many searches. Please wait a moment." });
+      const out = await routing.geocode(url.searchParams.get("q"), { lat: url.searchParams.get("lat"), lng: url.searchParams.get("lng") });
+      return sendJson(res, out.status, out.body || { error: out.error });
+    }
+    if (url.pathname === "/api/route" && req.method === "POST") {
+      if (!allowRate("r" + ip, 20, 10 * 60 * 1000)) return sendJson(res, 429, { error: "Too many route requests. Please wait a few minutes." });
+      const out = await routing.plan(await readBody(req), await allFloods());
+      return sendJson(res, out.status, out.body || { error: out.error });
+    }
+    sendJson(res, 404, { error: "Not found" });
+  } catch (e) {
+    console.error("Routing error:", e.message);
+    const status = e.status === 429 ? 429 : 502;
+    const what = url.pathname === "/api/geocode" ? "Place search" : "Route planning";
+    const msg = e.status === 429 ? `${what} is busy (daily limit reached). Please try again later.`
+      : e.status === 401 || e.status === 403 ? `${what} is unavailable: the OpenRouteService key was rejected.`
+      : /routable|could not find|no route/i.test(e.message) ? "No driving route found between these places."
+      : `${what} failed: ${e.message}`;
+    sendJson(res, status, { error: msg });
+  }
+}
+
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, "http://localhost");
+  if (url.pathname === "/api/route" || url.pathname === "/api/geocode") return handleRouting(req, res, url);
   if (url.pathname.startsWith("/api/reports")) return handleReports(req, res, url.pathname);
   if (url.pathname === "/api/waterlevel") {
     try {
@@ -212,7 +265,7 @@ const server = http.createServer(async (req, res) => {
   }
   if (url.pathname === "/healthz") {
     res.writeHead(200, { "Content-Type": "text/plain" });
-    return res.end(`ok (reports: ${await reports.check()})`);
+    return res.end(`ok (reports: ${await reports.check()}; routing: ${routing.enabled() ? "on" : "off, no ORS_API_KEY"})`);
   }
   if (url.pathname === "/api/roadflood") {
     try {
@@ -232,7 +285,10 @@ const server = http.createServer(async (req, res) => {
   }
   if (url.pathname === "/" || url.pathname === "/index.html") {
     // The Google Maps browser key is public by design (restrict it to this site in Google Cloud).
-    const config = { googleKey: (process.env.GOOGLE_MAPS_API_KEY || "").trim().replace(/^(["'])(.*)\1$/, "$2") || null };
+    const config = {
+      googleKey: (process.env.GOOGLE_MAPS_API_KEY || "").trim().replace(/^(["'])(.*)\1$/, "$2") || null,
+      routing: routing.enabled(),
+    };
     const html = fs.readFileSync(path.join(__dirname, "public", "index.html"), "utf8")
       .replace("{/*CONFIG*/}", JSON.stringify(config).replace(/</g, "\\u003c"));
     res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });

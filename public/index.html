@@ -173,6 +173,32 @@ main { position: relative; min-height: 0; }
 .votes .vq { width: 100%; font-weight: 600; }
 .votes .del { color: var(--l5); }
 
+/* Route planner */
+.rt-field { display: grid; gap: 6px; }
+.rt-field label { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+.rt-dot { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; color: #fff; font: 700 11px/1 var(--mono); }
+.rt-dot.a { background: #1f8f4e; }
+.rt-dot.b { background: #c62828; }
+.rt-in { position: relative; }
+.rt-in input { width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
+.sug { position: absolute; z-index: 900; left: 0; right: 0; top: calc(100% + 4px); background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 8px 24px rgb(0 0 0 / .18); overflow: hidden; }
+.sug button { display: block; width: 100%; text-align: left; border: 0; background: none; padding: 8px 12px; cursor: pointer; font-size: 13px; line-height: 1.35; }
+.sug button:hover, .sug button:focus-visible { background: var(--accent-soft); }
+.sug .none { padding: 8px 12px; color: var(--muted); font-size: 13px; }
+.rt-acts, .rt-veh { display: flex; gap: 6px; flex-wrap: wrap; }
+.rt-go { justify-self: start; padding: 9px 18px; font-size: 14.5px; font-weight: 700; }
+.rt-go:disabled { opacity: .6; cursor: progress; }
+.rt-result { display: grid; gap: 8px; border: 1px solid var(--line); border-radius: 12px; padding: 12px; }
+.rt-result .big { font-size: 22px; }
+.rt-ok { color: var(--l3); font-weight: 600; }
+.rt-warn { color: var(--r2); font-weight: 600; }
+.rt-result .row { display: flex; gap: 8px; flex-wrap: wrap; }
+.rt-result a.btn { text-decoration: none; display: inline-block; }
+.rt-pin span { display: grid; place-items: center; width: 100%; height: 100%; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); border: 2.5px solid #fff; box-shadow: 0 2px 6px rgb(0 0 0 / .4); box-sizing: border-box; }
+.rt-pin b { transform: rotate(45deg); color: #fff; font: 700 11px/1 var(--mono); }
+.rt-pin.a span { background: #1f8f4e; }
+.rt-pin.b span { background: #c62828; }
+
 .pulse { animation: pulse 1.8s ease-out infinite; transform-origin: center; transform-box: fill-box; }
 @keyframes pulse { 0% { stroke-opacity: .9; stroke-width: 2; } 100% { stroke-opacity: 0; stroke-width: 18; } }
 @media (prefers-reduced-motion: reduce) { .pulse { animation: none; } }
@@ -204,6 +230,29 @@ main { position: relative; min-height: 0; }
   <section>
     <div id="roadSummary" class="alert"><strong>…</strong></div>
     <div id="summary" class="alert"><strong>…</strong></div>
+  </section>
+
+  <section id="routeSec" hidden>
+    <h2 data-t="routeH"></h2>
+    <p class="hint" data-t="routeIntro"></p>
+    <div class="rt-field">
+      <label for="rtFrom"><span class="rt-dot a">A</span><span data-t="rtFrom"></span></label>
+      <div class="rt-in"><input id="rtFrom" type="text" autocomplete="off" enterkeyhint="search"><div class="sug" id="sugFrom" hidden></div></div>
+      <div class="rt-acts"><button class="btn" type="button" id="rtFromMe" data-t="rtMe"></button><button class="btn" type="button" id="rtFromMap" data-t="rtOnMap"></button></div>
+    </div>
+    <div class="rt-field">
+      <label for="rtTo"><span class="rt-dot b">B</span><span data-t="rtTo"></span></label>
+      <div class="rt-in"><input id="rtTo" type="text" autocomplete="off" enterkeyhint="search"><div class="sug" id="sugTo" hidden></div></div>
+      <div class="rt-acts"><button class="btn" type="button" id="rtToMap" data-t="rtOnMap"></button></div>
+    </div>
+    <div class="rt-veh" id="rtVeh" role="radiogroup">
+      <button class="btn" type="button" data-veh="motorbike" data-t="vehMoto"></button>
+      <button class="btn on" type="button" data-veh="car" data-t="vehCar"></button>
+      <button class="btn" type="button" data-veh="suv" data-t="vehSuv"></button>
+    </div>
+    <button class="btn on rt-go" type="button" id="rtGo" data-t="rtGo"></button>
+    <p class="err" id="rtErr" hidden></p>
+    <div id="rtResult" class="rt-result" hidden></div>
   </section>
 
   <section>
@@ -338,6 +387,19 @@ const I18N = {
     rfNoteQ: "Note (optional)", rfPublic: "Your report is public and shows for 6 hours. Please don't include personal information.",
     rfSend: "Send report", rfNeedDepth: "Choose how deep the water is.", rfThanks: "Report sent. Thank you!",
     stillQ: "Is it still flooded?", voteStill: "Still flooded", voteCleared: "Water is gone", deleteMine: "Delete my report",
+    routeH: "Plan a route around floods", routeIntro: "Get driving directions that steer around flooded roads reported right now.",
+    rtFrom: "From", rtTo: "To", rtMe: "My location", rtOnMap: "Choose on map", rtMyLoc: "My location",
+    rtPickFrom: "Tap the map to set the start", rtPickTo: "Tap the map to set the destination", rtMapPoint: "Point on map",
+    rtNoPlace: "No places found. Try another name, or choose on the map.",
+    vehMoto: "Motorbike", vehCar: "Car", vehSuv: "Pickup / SUV",
+    rtGo: "Find a dry route", rtWorking: "Finding a route…", rtNeedBoth: "Choose both a start and a destination.",
+    km: "km", min: "min", hr: "hr",
+    rtAvoided: n => `Avoids ${n} flooded spot${n > 1 ? "s" : ""}`, rtExtra: d => `adds about ${d}`,
+    rtClear: "No reported flooding on this route",
+    rtPartial: "Couldn't find a way around every flooded spot.",
+    rtStill: n => `Still passes ${n} reported flood spot${n > 1 ? "s" : ""}:`, rtNearEnd: "at your start or destination",
+    rtNavigate: "Navigate in Google Maps", rtClearBtn: "Clear route",
+    rtDisclaimer: "Flood reports can be incomplete or out of date, and Google Maps may change parts of a long route. Never drive into water if you can't see the road surface.",
     allDistricts: "Bangkok district: all", districtLbl: "District",
     layerTraffic: "Live traffic (Google)", baseMap: "Base map",
     gFallback: "Google Maps is unavailable right now, showing OpenStreetMap instead.",
@@ -382,6 +444,19 @@ const I18N = {
     rfNoteQ: "หมายเหตุ (ไม่บังคับ)", rfPublic: "รายงานจะแสดงต่อสาธารณะเป็นเวลา 6 ชั่วโมง กรุณาอย่าใส่ข้อมูลส่วนตัว",
     rfSend: "ส่งรายงาน", rfNeedDepth: "กรุณาเลือกระดับความลึกของน้ำ", rfThanks: "ส่งรายงานแล้ว ขอบคุณครับ/ค่ะ",
     stillQ: "ตอนนี้ยังท่วมอยู่ไหม?", voteStill: "ยังท่วมอยู่", voteCleared: "น้ำลดแล้ว", deleteMine: "ลบรายงานของฉัน",
+    routeH: "วางแผนเส้นทางเลี่ยงน้ำท่วม", routeIntro: "หาเส้นทางขับรถที่เลี่ยงถนนซึ่งมีรายงานน้ำท่วมอยู่ในขณะนี้",
+    rtFrom: "จาก", rtTo: "ไปที่", rtMe: "ตำแหน่งของฉัน", rtOnMap: "เลือกบนแผนที่", rtMyLoc: "ตำแหน่งของฉัน",
+    rtPickFrom: "แตะบนแผนที่เพื่อเลือกจุดเริ่มต้น", rtPickTo: "แตะบนแผนที่เพื่อเลือกปลายทาง", rtMapPoint: "จุดบนแผนที่",
+    rtNoPlace: "ไม่พบสถานที่ ลองชื่ออื่น หรือเลือกบนแผนที่",
+    vehMoto: "มอเตอร์ไซค์", vehCar: "รถเก๋ง", vehSuv: "รถกระบะ / SUV",
+    rtGo: "หาเส้นทางเลี่ยงน้ำ", rtWorking: "กำลังหาเส้นทาง…", rtNeedBoth: "กรุณาเลือกทั้งจุดเริ่มต้นและปลายทาง",
+    km: "กม.", min: "นาที", hr: "ชม.",
+    rtAvoided: n => `เลี่ยงจุดน้ำท่วม ${n} จุด`, rtExtra: d => `ใช้เวลาเพิ่มประมาณ ${d}`,
+    rtClear: "ไม่มีรายงานน้ำท่วมบนเส้นทางนี้",
+    rtPartial: "ไม่สามารถเลี่ยงได้ทุกจุดที่น้ำท่วม",
+    rtStill: n => `เส้นทางนี้ยังผ่านจุดที่มีรายงานน้ำท่วม ${n} จุด:`, rtNearEnd: "อยู่ที่จุดเริ่มต้นหรือปลายทาง",
+    rtNavigate: "นำทางใน Google Maps", rtClearBtn: "ล้างเส้นทาง",
+    rtDisclaimer: "ข้อมูลน้ำท่วมอาจไม่ครบหรือไม่เป็นปัจจุบัน และ Google Maps อาจปรับเส้นทางบางช่วงในระยะไกล อย่าขับรถลุยน้ำถ้ามองไม่เห็นพื้นถนน",
     allDistricts: "เขตในกรุงเทพฯ: ทั้งหมด", districtLbl: "เขต",
     layerTraffic: "สภาพการจราจร (Google)", baseMap: "แผนที่พื้นฐาน",
     gFallback: "ใช้ Google Maps ไม่ได้ในขณะนี้ จึงแสดงแผนที่ OpenStreetMap แทน",
@@ -798,6 +873,153 @@ async function load() {
   }
 }
 
+// ---- Route planner (flood-avoiding directions via OpenRouteService, planned on the server) ----
+const rt = { from: null, to: null, veh: "car", pins: {}, line: null };
+let routePick = null; // "from" | "to" while choosing a point on the map
+
+function setRoutePoint(which, ll, label) {
+  rt[which] = { lat: ll.lat, lng: ll.lng, label };
+  $(which === "from" ? "rtFrom" : "rtTo").value = label;
+  if (rt.pins[which]) rt.pins[which].remove();
+  const k = which === "from" ? "a" : "b";
+  rt.pins[which] = map.marker({ lat: ll.lat, lng: ll.lng, cls: `rt-pin ${k}`, html: `<span><b>${k.toUpperCase()}</b></span>`, w: 26, h: 26, ax: 13, ay: 26, z: 6000 });
+  rt.pins[which].show();
+}
+function startRoutePick(which) {
+  if (picking) endReport();
+  routePick = which;
+  $("map").classList.add("picking");
+  toast(which === "from" ? T().rtPickFrom : T().rtPickTo);
+  if (matchMedia("(max-width: 760px)").matches) $("map").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+function finishRoutePick(ll) {
+  const which = routePick;
+  routePick = null;
+  $("map").classList.remove("picking");
+  $("toast").hidden = true;
+  setRoutePoint(which, ll, `${T().rtMapPoint} (${ll.lat.toFixed(4)}, ${ll.lng.toFixed(4)})`);
+}
+
+// Place search with suggestions
+function wireSearch(inputId, boxId, which) {
+  const input = $(inputId), box = $(boxId);
+  let timer = null, seq = 0;
+  input.addEventListener("input", () => {
+    rt[which] = null;
+    clearTimeout(timer);
+    const q = input.value.trim();
+    if (q.length < 2) { box.hidden = true; return; }
+    timer = setTimeout(async () => {
+      const my = ++seq;
+      try {
+        const center = rt.from || { lat: 13.76, lng: 100.55 };
+        const r = await fetch(`/api/geocode?q=${encodeURIComponent(q)}&lat=${center.lat}&lng=${center.lng}`);
+        const j = await r.json();
+        if (my !== seq) return;
+        if (!r.ok) throw new Error(j.error || r.status);
+        box.innerHTML = j.places.length
+          ? j.places.map((p, i) => `<button type="button" data-i="${i}">${esc(p.label)}</button>`).join("")
+          : `<div class="none">${T().rtNoPlace}</div>`;
+        box.onclick = e => {
+          const b = e.target.closest("[data-i]"); if (!b) return;
+          const p = j.places[+b.dataset.i];
+          setRoutePoint(which, p, p.label);
+          box.hidden = true;
+          map.flyTo([p.lat, p.lng], 14);
+        };
+        box.hidden = false;
+      } catch (err) {
+        box.innerHTML = `<div class="none">${esc(err.message)}</div>`;
+        box.hidden = false;
+      }
+    }, 350);
+  });
+  input.addEventListener("keydown", e => { if (e.key === "Escape") box.hidden = true; });
+  document.addEventListener("click", e => { if (!box.contains(e.target) && e.target !== input) box.hidden = true; });
+}
+
+function clearRoute() {
+  if (rt.line) { rt.line.remove(); rt.line = null; }
+  $("rtResult").hidden = true;
+  $("rtErr").hidden = true;
+}
+function resetRoute() {
+  clearRoute();
+  ["from", "to"].forEach(w => { if (rt.pins[w]) rt.pins[w].remove(); rt.pins[w] = null; rt[w] = null; });
+  $("rtFrom").value = "";
+  $("rtTo").value = "";
+}
+
+const fmtKm = m => (m / 1000).toFixed(m < 10000 ? 1 : 0);
+const fmtMin = s => { const m = Math.round(s / 60); return m < 60 ? `${m} ${T().min}` : `${Math.floor(m / 60)} ${T().hr} ${m % 60} ${T().min}`; };
+
+async function planRoute() {
+  const t = T(), err = $("rtErr");
+  err.hidden = true;
+  if (!rt.from || !rt.to) { err.textContent = t.rtNeedBoth; err.hidden = false; return; }
+  const go = $("rtGo");
+  go.disabled = true; go.textContent = t.rtWorking;
+  try {
+    const r = await fetch("/api/route", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ from: rt.from, to: rt.to, vehicle: rt.veh }) });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error || r.status);
+    clearRoute();
+    rt.line = map.line(j.coords, { color: "#1a5fd0", weight: 6 });
+    map.flyToBounds(j.coords, { padding: 40 });
+    const extra = j.duration - j.plain.duration;
+    const hits = j.stillOn, rc = RCOL();
+    const serious = hits.filter(h => h.cat >= 2);
+    $("rtResult").innerHTML = `
+      <div><span class="big">${fmtKm(j.distance)}</span> ${t.km} · ${fmtMin(j.duration)}</div>
+      ${j.avoided ? `<div class="rt-ok">✓ ${t.rtAvoided(j.avoided)}${extra > 60 ? ` (${t.rtExtra(fmtMin(extra))})` : ""}</div>` : ""}
+      ${!j.avoided && !serious.length ? `<div class="rt-ok">✓ ${t.rtClear}</div>` : ""}
+      ${j.note === "partial" ? `<div class="rt-warn">${t.rtPartial}</div>` : ""}
+      ${hits.length ? `<div class="rt-warn">${t.rtStill(hits.length)}</div>
+        <div class="list">${hits.map(h => `
+          <button class="item" type="button" data-lat="${h.lat}" data-lng="${h.lng}">
+            <span class="bar" style="background:${rc[h.cat]}"></span>
+            <span><span class="nm">${esc(nm(h.title))}</span><br><span class="pv">${t.roadCat[h.cat]}${h.mustPass ? " · " + t.rtNearEnd : ""}</span></span>
+            <span class="pct">${h.depth != null ? Math.round(h.depth) + " " + t.cm : ""}</span>
+          </button>`).join("")}</div>` : ""}
+      <div class="row">
+        <a class="btn on" href="${esc(j.google)}" target="_blank" rel="noopener">${t.rtNavigate}</a>
+        <button class="btn" type="button" id="rtClear">${t.rtClearBtn}</button>
+      </div>
+      <p class="hint">${t.rtDisclaimer}</p>`;
+    $("rtResult").hidden = false;
+  } catch (e) {
+    err.textContent = e.message;
+    err.hidden = false;
+  } finally {
+    go.disabled = false; go.textContent = t.rtGo;
+  }
+}
+
+// route planner controls
+wireSearch("rtFrom", "sugFrom", "from");
+wireSearch("rtTo", "sugTo", "to");
+$("rtFromMap").onclick = () => startRoutePick("from");
+$("rtToMap").onclick = () => startRoutePick("to");
+$("rtFromMe").onclick = () => {
+  if (!navigator.geolocation) return toast(T().locErr, true);
+  navigator.geolocation.getCurrentPosition(
+    p => setRoutePoint("from", { lat: p.coords.latitude, lng: p.coords.longitude }, T().rtMyLoc),
+    () => toast(T().locErr, true), { enableHighAccuracy: true, timeout: 10000 });
+};
+$("rtVeh").onclick = e => {
+  const b = e.target.closest("[data-veh]"); if (!b) return;
+  rt.veh = b.dataset.veh;
+  $("rtVeh").querySelectorAll("[data-veh]").forEach(x => x.classList.toggle("on", x === b));
+  if (rt.line) planRoute();
+};
+$("rtGo").onclick = planRoute;
+document.addEventListener("click", e => {
+  if (e.target.id === "rtClear") return resetRoute();
+  const it = e.target.closest("#rtResult .item");
+  if (it) map.flyTo([+it.dataset.lat, +it.dataset.lng], 16);
+});
+
 // events (panel controls; nothing here touches the map until it is called)
 document.getElementById("lang").onclick = () => {
   lang = lang === "en" ? "th" : "en";
@@ -882,7 +1104,8 @@ async function boot() {
   near.onclick = e => { e.stopPropagation(); locate(false); };
   map.addControl(near);
 
-  map.on("click", ll => { if (picking) placePick(ll); });
+  map.on("click", ll => { if (routePick) finishRoutePick(ll); else if (picking) placePick(ll); });
+  $("routeSec").hidden = !CONFIG.routing;
   map.on("moveend", updateView);
   // shrink road depth labels to plain squares when zoomed out
   const setFar = () => $("map").classList.toggle("far", map.getZoom() < 11);

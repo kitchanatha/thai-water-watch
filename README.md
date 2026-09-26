@@ -37,3 +37,13 @@ Set `GOOGLE_MAPS_API_KEY` (a browser key with the Maps JavaScript API enabled, r
 site's address) and the site uses Google Maps with a live traffic layer. Visitors can switch between
 Google Maps and OpenStreetMap in the side panel. If Google rejects the key or fails to load, the page
 falls back to OpenStreetMap automatically.
+
+## Flood-avoiding directions (optional)
+
+Set `ORS_API_KEY` (free key from openrouteservice.org) to enable the route planner. The server asks
+OpenRouteService for a driving route, finds flood reports within ~45 m of it, and re-routes with small
+"avoid" squares around those spots (up to 3 rounds). What each vehicle avoids:
+motorbike > 10 cm or unknown depth; car > 20 cm or unknown; pickup/SUV only > 30 cm or closed.
+Floods within 250 m of the start or destination can't be avoided and are shown as warnings.
+"Navigate in Google Maps" opens the route with 3 waypoints so Google follows the same roads.
+Limits: 20 routes and 120 place searches per visitor per 10 minutes.
