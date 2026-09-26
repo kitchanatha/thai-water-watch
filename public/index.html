@@ -160,7 +160,7 @@ main { position: relative; min-height: 0; }
 .me span { display: block; width: 100%; height: 100%; border-radius: 50%; background: #0b6e8a; border: 3px solid #fff; box-shadow: 0 0 0 1px rgb(0 0 0 / .3); box-sizing: border-box; }
 .gmk:hover { z-index: 9999 !important; }
 .map-btn { box-shadow: 0 2px 8px rgb(0 0 0 / .2); padding: 7px 12px; font-size: 13px; }
-.map-ctl { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.map-ctl { position: absolute; z-index: 650; top: 10px; right: 10px; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
 .route-btn { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; }
 .route-btn:hover { color: #fff; filter: brightness(1.08); }
 #routeSec.flash { animation: flash 1.6s ease-out; }
@@ -1135,7 +1135,9 @@ async function boot() {
   near.type = "button"; near.id = "near"; near.className = "btn map-btn"; near.textContent = T().myLoc;
   near.onclick = e => { e.stopPropagation(); locate(false); };
   ctl.appendChild(near);
-  map.addControl(ctl);
+  // Overlay on the map area ourselves rather than via the map engine's control system,
+  // so the buttons look and behave the same on Google Maps and OpenStreetMap.
+  $("map").after(ctl);
 
   map.on("click", ll => { if (routePick) finishRoutePick(ll); else if (picking) placePick(ll); });
   $("routeSec").hidden = !CONFIG.routing;
