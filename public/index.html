@@ -1,0 +1,578 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Thai Water Watch</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+:root {
+  --bg: #f3f6f7;
+  --panel: #ffffff;
+  --ink: #14242b;
+  --muted: #5b6d74;
+  --line: #dbe3e6;
+  --accent: #0b6e8a;
+  --accent-soft: #e2f0f4;
+  /* ThaiWater official situation colours */
+  --l1: #db802b; --l2: #e0a800; --l3: #00a14b; --l4: #1f4fe0; --l5: #e02020; --l0: #9aa7ac;
+  --font: "IBM Plex Sans Thai", system-ui, -apple-system, "Segoe UI", Tahoma, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0e171b; --panel: #152228; --ink: #e3edf0; --muted: #93a6ad;
+    --line: #243740; --accent: #4cc2e0; --accent-soft: #173640;
+    --l4: #5b86ff; --l5: #ff4d4d; --l0: #62737a;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body { background: var(--bg); color: var(--ink); font: 14px/1.5 var(--font); display: grid; grid-template-columns: 360px 1fr; }
+button, select, input { font: inherit; color: inherit; }
+button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+aside { background: var(--panel); border-right: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; overflow-y: auto; }
+.head { padding: 18px 18px 14px; border-bottom: 1px solid var(--line); display: grid; gap: 4px; }
+.head-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+h1 { font-size: 20px; line-height: 1.2; margin: 0; font-weight: 700; letter-spacing: -0.01em; text-wrap: balance; }
+h1 span { color: var(--accent); }
+.sub { color: var(--muted); font-size: 12.5px; margin: 0; }
+.updated { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.btn { border: 1px solid var(--line); background: var(--panel); border-radius: 8px; padding: 5px 10px; cursor: pointer; font-size: 12.5px; }
+.btn:hover { border-color: var(--accent); color: var(--accent); }
+.btn.on { background: var(--accent); border-color: var(--accent); color: var(--panel); }
+
+section { padding: 14px 18px; border-bottom: 1px solid var(--line); display: grid; gap: 10px; }
+h2 { margin: 0; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 600; }
+
+.alert { border-radius: 10px; padding: 12px 14px; background: var(--accent-soft); display: grid; gap: 2px; }
+.alert strong { font-size: 15px; }
+.alert.bad { background: color-mix(in srgb, var(--l5) 14%, var(--panel)); }
+.alert.warn { background: color-mix(in srgb, var(--l4) 14%, var(--panel)); }
+.alert.ok { background: color-mix(in srgb, var(--l3) 14%, var(--panel)); }
+.alert small { color: var(--muted); }
+
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+select { width: 100%; padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
+
+.legend { display: grid; gap: 4px; }
+.legend label { display: grid; grid-template-columns: 18px 14px 1fr auto; align-items: center; gap: 8px; cursor: pointer; padding: 3px 4px; border-radius: 6px; }
+.legend label:hover { background: var(--accent-soft); }
+.legend input { margin: 0; accent-color: var(--accent); }
+.dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+.count { font-family: var(--mono); font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.range { color: var(--muted); font-size: 12px; margin-left: 4px; }
+
+.list { display: grid; gap: 2px; }
+.item { display: grid; grid-template-columns: 4px 1fr auto; gap: 10px; align-items: center; padding: 7px 6px; border-radius: 8px; cursor: pointer; border: 0; background: none; text-align: left; width: 100%; }
+.item:hover { background: var(--accent-soft); }
+.item .bar { align-self: stretch; border-radius: 2px; }
+.item .nm { font-weight: 500; line-height: 1.3; }
+.item .pv { color: var(--muted); font-size: 12px; }
+.item .pct { font-family: var(--mono); font-size: 13px; font-variant-numeric: tabular-nums; }
+.empty { color: var(--muted); font-size: 13px; }
+.note { color: var(--muted); font-size: 12px; }
+.note a { color: var(--accent); }
+
+main { position: relative; min-height: 0; }
+#map { position: absolute; inset: 0; background: var(--bg); }
+.tiles-dark { filter: invert(1) hue-rotate(180deg) brightness(0.9) contrast(0.9) saturate(0.6); }
+.status { position: absolute; z-index: 500; left: 50%; top: 14px; transform: translateX(-50%); background: var(--panel); border: 1px solid var(--line); padding: 8px 14px; border-radius: 999px; box-shadow: 0 4px 16px rgb(0 0 0 / 0.12); font-size: 13px; max-width: calc(100% - 32px); }
+.status.err { color: var(--l5); }
+
+.leaflet-popup-content-wrapper, .leaflet-popup-tip { background: var(--panel); color: var(--ink); }
+.leaflet-popup-content { margin: 14px 16px; font: 13px/1.45 var(--font); min-width: 230px; }
+.pop h3 { margin: 0 0 2px; font-size: 15px; }
+.pop .where { color: var(--muted); font-size: 12px; margin-bottom: 8px; }
+.pill { display: inline-block; padding: 2px 9px; border-radius: 999px; color: #fff; font-weight: 600; font-size: 12px; }
+.gauge { height: 8px; border-radius: 4px; background: var(--line); margin: 10px 0 4px; position: relative; overflow: hidden; }
+.gauge i { position: absolute; inset: 0 auto 0 0; border-radius: 4px; }
+.gauge b { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--ink); opacity: 0.5; }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; margin: 8px 0; }
+.kv dt { color: var(--muted); }
+.kv dd { margin: 0; font-family: var(--mono); font-size: 12.5px; text-align: right; font-variant-numeric: tabular-nums; }
+.stale { color: var(--l1); font-size: 12px; margin: 4px 0; }
+.gmaps { display: inline-block; margin-top: 4px; color: var(--accent) !important; font-weight: 600; text-decoration: none; }
+.gmaps:hover { text-decoration: underline; }
+
+/* Road flood sensors */
+:root { --r0: #2f9e6e; --r1: #d9a600; --r2: #f07a1a; --r3: #e02020; --r4: #7a1fa8; --r5: #5b6fae; }
+.road-ic { display: flex; align-items: center; justify-content: center; }
+.road-ic span { display: inline-flex; align-items: center; justify-content: center; gap: 2px; min-width: 30px; height: 20px; padding: 0 6px; border-radius: 5px; color: #fff; font: 600 11.5px/1 var(--mono); border: 2px solid #fff; box-shadow: 0 1px 4px rgb(0 0 0 / .35); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.road-ic span small { font-size: 9px; opacity: .85; }
+.road-ic.dry span { min-width: 0; width: 12px; height: 12px; padding: 0; border-radius: 3px; border-width: 1.5px; }
+.road-ic.off span { min-width: 0; width: 11px; height: 11px; padding: 0; border-radius: 3px; border-width: 1.5px; opacity: .7; }
+.far .road-ic.wet span { min-width: 0; width: 14px; height: 14px; padding: 0; font-size: 0; }
+.far .road-ic.wet span small { display: none; }
+.layers { display: grid; gap: 6px; }
+.layers label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.layers input { margin: 0; accent-color: var(--accent); }
+.layers .count { margin-left: auto; }
+.sq { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+.roadscale { display: grid; gap: 3px; }
+.roadscale div { display: grid; grid-template-columns: 14px 64px 1fr; gap: 8px; align-items: center; font-size: 12.5px; }
+.roadscale .cm { font-family: var(--mono); font-size: 11.5px; color: var(--muted); }
+.depthbar { display: flex; align-items: flex-end; gap: 10px; margin: 10px 0 4px; }
+.depthbar .car { font-size: 12px; color: var(--muted); }
+.big { font: 700 28px/1 var(--mono); }
+
+.pulse { animation: pulse 1.8s ease-out infinite; transform-origin: center; transform-box: fill-box; }
+@keyframes pulse { 0% { stroke-opacity: .9; stroke-width: 2; } 100% { stroke-opacity: 0; stroke-width: 18; } }
+@media (prefers-reduced-motion: reduce) { .pulse { animation: none; } }
+
+@media (max-width: 760px) {
+  body { grid-template-columns: 1fr; grid-template-rows: 55vh 1fr; }
+  main { grid-row: 1; }
+  aside { grid-row: 2; border-right: 0; border-top: 1px solid var(--line); }
+}
+</style>
+</head>
+<body>
+<aside>
+  <div class="head">
+    <div class="head-row">
+      <h1>Thai <span>Water</span> Watch</h1>
+      <button class="btn" id="lang" type="button">ไทย</button>
+    </div>
+    <p class="sub" data-t="tagline"></p>
+    <div class="updated"><span id="updated">…</span><button class="btn" id="refresh" type="button" data-t="refresh"></button></div>
+  </div>
+
+  <section>
+    <div id="roadSummary" class="alert"><strong>…</strong></div>
+    <div id="summary" class="alert"><strong>…</strong></div>
+  </section>
+
+  <section>
+    <h2 data-t="goTo"></h2>
+    <div class="chips" id="places"></div>
+    <select id="province" aria-label="Province"></select>
+  </section>
+
+  <section>
+    <h2 data-t="layersH"></h2>
+    <div class="layers">
+      <label><input type="checkbox" id="showRoads" checked><span class="sq" style="background:var(--r4)"></span><span data-t="layerRoads"></span><span class="count" id="roadCount"></span></label>
+      <label><input type="checkbox" id="showRivers" checked><span class="dot" style="background:var(--l4)"></span><span data-t="layerRivers"></span><span class="count" id="riverCount"></span></label>
+    </div>
+  </section>
+
+  <section>
+    <h2 data-t="roadScaleH"></h2>
+    <div class="roadscale" id="roadscale"></div>
+  </section>
+
+  <section>
+    <h2 data-t="roadListH"></h2>
+    <div class="list" id="roadList"></div>
+  </section>
+
+  <section>
+    <h2 data-t="levels"></h2>
+    <div class="legend" id="legend"></div>
+  </section>
+
+  <section>
+    <h2 data-t="watchList"></h2>
+    <div class="list" id="list"></div>
+  </section>
+
+  <section>
+    <p class="note" data-t="roadSource"></p>
+    <p class="note" data-t="source"></p>
+  </section>
+</aside>
+
+<main>
+  <div id="map"></div>
+  <div class="status" id="status" data-t="loading"></div>
+</main>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const I18N = {
+  en: {
+    tagline: "Live river and canal water levels across Thailand. Check before you travel.",
+    refresh: "Refresh", loading: "Loading live water levels…", goTo: "Go to", levels: "Water level (% of riverbank)",
+    watchList: "Highest in this map view", allThailand: "All Thailand", allProvinces: "All provinces",
+    updated: "Updated", stations: "stations", noneHigh: "No high-water stations in this view.",
+    sumBad: n => `${n} station${n > 1 ? "s" : ""} overflowing banks in this view`,
+    sumWarn: n => `${n} station${n > 1 ? "s" : ""} with high water in this view`,
+    sumOk: "Water levels look normal in this view",
+    sumBadHint: "Expect possible flooding nearby. Check local news and allow extra travel time.",
+    sumWarnHint: "Rivers are high. Watch for rising water, especially after heavy rain.",
+    sumOkHint: "No stations above 70% of bank capacity.",
+    lvl: ["No data", "Critically low", "Low", "Normal", "High", "Overflowing"],
+    range: ["", "≤10%", "10–30%", "30–70%", "70–100%", ">100%"],
+    ofBank: "of bank capacity", waterMsl: "Water level", bank: "Riverbank top", ground: "Riverbed",
+    trend: "Trend", rising: "▲ rising", falling: "▼ falling", steady: "● steady", measured: "Measured",
+    stale: "Reading is over 6 hours old.", openGmaps: "Open in Google Maps ↗", msl: "m MSL",
+    myLoc: "Near me", err: "Could not load data. Is the server running? ",
+    layersH: "Show on map", layerRoads: "Flooded roads", layerRivers: "Rivers & canals",
+    roadScaleH: "Water on the road", roadListH: "Flooded roads in this view",
+    roadCat: ["", "Shallow", "Deep", "Very deep", "Impassable", "Depth not reported"],
+    roadAdvice: ["", "Passable, drive slowly", "Motorbikes avoid, cars slow", "Small cars avoid", "Closed or most vehicles cannot pass", "Flooding reported, check before going"],
+    roadCm: ["", "≤ 10 cm", "10–20 cm", "20–30 cm", "> 30 cm", "?"],
+    noRoadFlood: "No flooded roads reported in this view.",
+    roadSumBad: n => `${n} flooded road report${n > 1 ? "s" : ""} in this view`,
+    roadSumBadHint: (closed, deep) => [closed ? `${closed} impassable or closed` : "", deep ? `${deep} deeper than 20 cm` : ""].filter(Boolean).join(" · ") || "Mostly shallow or depth not reported. Allow extra travel time.",
+    roadSumOk: "No flooded roads reported in this view", roadSumOkHint: "Based on live reports from the Department of Highways, BMA and drivers.",
+    depthNow: "of water reported", reported: "Reported", until: "Expected until", src: "Source",
+    srcName: { doh: "Department of Highways", itic: "iTIC traffic centre (often citing BMA)", user: "Driver report (unverified)" },
+    passableTag: "Reported passable", closedTag: "Reported impassable / closed",
+    cm: "cm", roadErr: "Flooded-road reports unavailable: ", details: "Details",
+    roadSource: 'Flooded roads: <a href="https://traffic.longdo.com" target="_blank" rel="noopener">Longdo Traffic / iTIC</a> live event feed, covering the Department of Highways, BMA Drainage Dept and driver reports across Thailand. Depth is read from the report text when given. Advice is a rough guide for drivers, not an official rating.',
+    source: 'Data: <a href="https://www.thaiwater.net" target="_blank" rel="noopener">ThaiWater.net</a> (Hydro-Informatics Institute, HII), refreshed every 5 minutes. Percent is water height relative to the lowest riverbank; above 100% means water is over the bank. Use official warnings from the Department of Disaster Prevention and Mitigation for safety decisions.',
+  },
+  th: {
+    tagline: "ระดับน้ำในแม่น้ำและคลองทั่วประเทศไทยแบบเรียลไทม์ ตรวจสอบก่อนเดินทาง",
+    refresh: "รีเฟรช", loading: "กำลังโหลดข้อมูลระดับน้ำ…", goTo: "ไปที่", levels: "ระดับน้ำ (% ความจุลำน้ำ)",
+    watchList: "สถานีที่น้ำสูงสุดในแผนที่นี้", allThailand: "ทั้งประเทศ", allProvinces: "ทุกจังหวัด",
+    updated: "อัปเดต", stations: "สถานี", noneHigh: "ไม่มีสถานีที่น้ำมากในบริเวณนี้",
+    sumBad: n => `น้ำล้นตลิ่ง ${n} สถานีในบริเวณนี้`,
+    sumWarn: n => `น้ำมาก ${n} สถานีในบริเวณนี้`,
+    sumOk: "ระดับน้ำปกติในบริเวณนี้",
+    sumBadHint: "อาจมีน้ำท่วมใกล้เคียง ติดตามข่าวท้องถิ่นและเผื่อเวลาเดินทาง",
+    sumWarnHint: "ระดับน้ำในลำน้ำสูง เฝ้าระวังโดยเฉพาะหลังฝนตกหนัก",
+    sumOkHint: "ไม่มีสถานีที่ระดับน้ำเกิน 70% ของความจุลำน้ำ",
+    lvl: ["ไม่มีข้อมูล", "น้ำน้อยวิกฤต", "น้ำน้อย", "น้ำปกติ", "น้ำมาก", "น้ำล้นตลิ่ง"],
+    range: ["", "≤10%", "10–30%", "30–70%", "70–100%", ">100%"],
+    ofBank: "ของความจุลำน้ำ", waterMsl: "ระดับน้ำ", bank: "ระดับตลิ่ง", ground: "ระดับท้องน้ำ",
+    trend: "แนวโน้ม", rising: "▲ เพิ่มขึ้น", falling: "▼ ลดลง", steady: "● ทรงตัว", measured: "เวลาวัด",
+    stale: "ข้อมูลเก่ากว่า 6 ชั่วโมง", openGmaps: "เปิดใน Google Maps ↗", msl: "ม.รทก.",
+    myLoc: "ใกล้ฉัน", err: "โหลดข้อมูลไม่สำเร็จ เซิร์ฟเวอร์ทำงานอยู่หรือไม่? ",
+    layersH: "แสดงบนแผนที่", layerRoads: "น้ำท่วมถนน", layerRivers: "แม่น้ำและคลอง",
+    roadScaleH: "ระดับน้ำบนถนน", roadListH: "ถนนที่น้ำท่วมในบริเวณนี้",
+    roadCat: ["", "น้ำตื้น", "น้ำลึก", "น้ำลึกมาก", "ผ่านไม่ได้", "ไม่ระบุความลึก"],
+    roadAdvice: ["", "ผ่านได้ ขับช้าๆ", "รถจักรยานยนต์ควรเลี่ยง", "รถเก๋งควรเลี่ยง", "ปิดถนนหรือรถส่วนใหญ่ผ่านไม่ได้", "มีรายงานน้ำท่วม ตรวจสอบก่อนเดินทาง"],
+    roadCm: ["", "≤ 10 ซม.", "10–20 ซม.", "20–30 ซม.", "> 30 ซม.", "?"],
+    noRoadFlood: "ไม่มีรายงานน้ำท่วมถนนในบริเวณนี้",
+    roadSumBad: n => `รายงานน้ำท่วมถนน ${n} จุดในบริเวณนี้`,
+    roadSumBadHint: (closed, deep) => [closed ? `ผ่านไม่ได้/ปิด ${closed} จุด` : "", deep ? `ลึกเกิน 20 ซม. ${deep} จุด` : ""].filter(Boolean).join(" · ") || "ส่วนใหญ่น้ำตื้นหรือไม่ระบุความลึก เผื่อเวลาเดินทาง",
+    roadSumOk: "ไม่มีรายงานน้ำท่วมถนนในบริเวณนี้", roadSumOkHint: "จากรายงานสดของกรมทางหลวง กทม. และผู้ขับขี่",
+    depthNow: "ระดับน้ำที่รายงาน", reported: "รายงานเมื่อ", until: "คาดว่าถึง", src: "แหล่งข้อมูล",
+    srcName: { doh: "กรมทางหลวง", itic: "ศูนย์ iTIC (มักอ้างอิง สำนักการระบายน้ำ กทม.)", user: "รายงานจากผู้ขับขี่ (ยังไม่ยืนยัน)" },
+    passableTag: "รายงานว่าผ่านได้", closedTag: "รายงานว่าผ่านไม่ได้ / ปิดถนน",
+    cm: "ซม.", roadErr: "โหลดรายงานน้ำท่วมถนนไม่ได้: ", details: "รายละเอียด",
+    roadSource: 'น้ำท่วมถนน: ข้อมูลเหตุการณ์สดจาก <a href="https://traffic.longdo.com" target="_blank" rel="noopener">Longdo Traffic / iTIC</a> รวมรายงานจากกรมทางหลวง สำนักการระบายน้ำ กทม. และผู้ขับขี่ทั่วประเทศ ความลึกอ่านจากข้อความรายงาน คำแนะนำเป็นแนวทางคร่าวๆ ไม่ใช่ประกาศทางการ',
+    source: 'ข้อมูล: <a href="https://www.thaiwater.net" target="_blank" rel="noopener">ThaiWater.net</a> (สถาบันสารสนเทศทรัพยากรน้ำ สสน.) อัปเดตทุก 5 นาที เปอร์เซ็นต์คือระดับน้ำเทียบกับตลิ่งต่ำสุด เกิน 100% หมายถึงน้ำล้นตลิ่ง โปรดติดตามประกาศเตือนภัยจาก ปภ. เพื่อความปลอดภัย',
+  },
+};
+
+const PLACES = [
+  { key: "all", en: "All Thailand", th: "ทั้งประเทศ", b: [[5.6, 97.3], [20.5, 105.7]] },
+  { key: "bkk", en: "Bangkok", th: "กรุงเทพฯ", c: [13.76, 100.58], z: 11 },
+  { key: "ayt", en: "Ayutthaya", th: "อยุธยา", c: [14.35, 100.57], z: 10 },
+  { key: "cnx", en: "Chiang Mai", th: "เชียงใหม่", c: [18.79, 98.98], z: 10 },
+  { key: "cei", en: "Chiang Rai", th: "เชียงราย", c: [19.91, 99.83], z: 10 },
+  { key: "kkn", en: "Khon Kaen", th: "ขอนแก่น", c: [16.43, 102.83], z: 10 },
+  { key: "ubn", en: "Ubon", th: "อุบลฯ", c: [15.24, 104.85], z: 10 },
+  { key: "hdy", en: "Hat Yai", th: "หาดใหญ่", c: [7.01, 100.47], z: 10 },
+  { key: "hkt", en: "Phuket", th: "ภูเก็ต", c: [7.95, 98.34], z: 10 },
+];
+
+let lang = "en";
+try { lang = localStorage.getItem("tww-lang") || "en"; } catch {}
+const T = () => I18N[lang];
+const nm = o => (o && (o[lang] || o.en || o.th)) || "";
+const COLORS = () => { const s = getComputedStyle(document.documentElement); return [0,1,2,3,4,5].map(i => s.getPropertyValue("--l" + i).trim()); };
+
+let roadData = null, roadMarkers = [], roadErr = null;
+let data = null, markers = [], shown = new Set([1,2,3,4,5,0]), locMarker = null;
+
+const dark = matchMedia("(prefers-color-scheme: dark)").matches;
+const map = L.map("map", { zoomControl: true, preferCanvas: false }).setView(PLACES[1].c, PLACES[1].z);
+L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  maxZoom: 19,
+  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+  className: dark ? "tiles-dark" : "",
+}).addTo(map);
+
+// "Near me" control (works on localhost / https)
+const LocCtl = L.Control.extend({
+  onAdd() {
+    const b = L.DomUtil.create("button", "btn");
+    b.type = "button"; b.id = "near"; b.textContent = T().myLoc;
+    b.style.boxShadow = "0 2px 8px rgb(0 0 0 / .15)";
+    L.DomEvent.on(b, "click", e => { L.DomEvent.stop(e); map.locate({ setView: true, maxZoom: 11 }); });
+    return b;
+  },
+});
+new LocCtl({ position: "topright" }).addTo(map);
+map.on("locationfound", e => {
+  if (locMarker) locMarker.remove();
+  locMarker = L.circleMarker(e.latlng, { radius: 7, color: "#fff", weight: 3, fillColor: "#0b6e8a", fillOpacity: 1 }).addTo(map);
+});
+
+function levelOf(s) { return s.level >= 1 && s.level <= 5 ? s.level : 0; }
+function ageHours(s) { return s.time ? (Date.now() - new Date(s.time.replace(" ", "T") + ":00+07:00")) / 36e5 : Infinity; }
+function fmt(v, d = 2) { return v == null || isNaN(v) ? "–" : v.toFixed(d); }
+
+function popupHtml(s) {
+  const t = T(), c = COLORS(), lv = levelOf(s);
+  const pct = s.pct;
+  const diff = s.msl != null && s.prev != null ? s.msl - s.prev : null;
+  const trend = diff == null ? "–" : diff > 0.005 ? t.rising : diff < -0.005 ? t.falling : t.steady;
+  const w = pct == null ? 0 : Math.max(0, Math.min(pct, 130)) / 130 * 100;
+  const gq = encodeURIComponent(`${s.lat},${s.lng}`);
+  return `<div class="pop">
+    <h3>${nm(s.name)}</h3>
+    <div class="where">${[nm(s.amphoe), nm(s.province)].filter(Boolean).join(", ")} · ${nm(s.basin)}</div>
+    <span class="pill" style="background:${c[lv]}">${t.lvl[lv]}</span>
+    <strong style="margin-left:6px">${pct == null ? "" : fmt(pct, 0) + "%"}</strong> <span style="color:var(--muted)">${pct == null ? "" : t.ofBank}</span>
+    <div class="gauge"><i style="width:${w}%;background:${c[lv]}"></i><b style="left:${100 / 130 * 100}%"></b></div>
+    <dl class="kv">
+      <dt>${t.waterMsl}</dt><dd>${fmt(s.msl)} ${t.msl}</dd>
+      <dt>${t.bank}</dt><dd>${fmt(s.bank)} ${t.msl}</dd>
+      <dt>${t.ground}</dt><dd>${fmt(s.ground)} ${t.msl}</dd>
+      <dt>${t.trend}</dt><dd>${trend}${diff == null ? "" : ` (${diff >= 0 ? "+" : ""}${fmt(diff)} m)`}</dd>
+      <dt>${t.measured}</dt><dd>${s.time || "–"}</dd>
+    </dl>
+    ${ageHours(s) > 6 ? `<div class="stale">${t.stale}</div>` : ""}
+    <a class="gmaps" href="https://www.google.com/maps/search/?api=1&query=${gq}" target="_blank" rel="noopener">${t.openGmaps}</a>
+  </div>`;
+}
+
+function buildMarkers() {
+  markers.forEach(m => m.remove());
+  const c = COLORS();
+  // draw low levels first so overflowing stations sit on top
+  markers = [...data.stations].sort((a, b) => levelOf(a) - levelOf(b)).map(s => {
+    const lv = levelOf(s);
+    const m = L.circleMarker([s.lat, s.lng], {
+      radius: lv === 5 ? 9 : lv === 4 ? 7 : 5.5,
+      color: lv === 5 ? c[5] : "#ffffff", weight: lv === 5 ? 2 : 1.2,
+      fillColor: c[lv], fillOpacity: lv === 0 ? 0.6 : 0.92,
+      className: lv === 5 ? "pulse" : "",
+    });
+    m.station = s;
+    m.bindPopup(() => popupHtml(s), { maxWidth: 300 });
+    m.bindTooltip(() => `${nm(s.name)} · ${s.pct == null ? "–" : fmt(s.pct, 0) + "%"}`, { direction: "top", offset: [0, -6] });
+    return m;
+  });
+  applyFilter();
+}
+
+function applyFilter() {
+  const prov = document.getElementById("province").value;
+  markers.forEach(m => {
+    const s = m.station, ok = document.getElementById("showRivers").checked && shown.has(levelOf(s)) && (!prov || s.provinceCode === prov);
+    if (ok && !map.hasLayer(m)) m.addTo(map);
+    if (!ok && map.hasLayer(m)) m.remove();
+  });
+  roadMarkers.forEach(m => {
+    const ok = document.getElementById("showRoads").checked;
+    if (ok && !map.hasLayer(m)) m.addTo(map);
+    if (!ok && map.hasLayer(m)) m.remove();
+  });
+  updateView();
+}
+
+function updateView() {
+  updateRoadView();
+  if (!data) return;
+  const t = T(), c = COLORS(), b = map.getBounds();
+  const prov = document.getElementById("province").value;
+  const inView = data.stations.filter(s => b.contains([s.lat, s.lng]) && (!prov || s.provinceCode === prov));
+
+  // legend counts reflect the current view
+  const counts = [0,0,0,0,0,0];
+  inView.forEach(s => counts[levelOf(s)]++);
+  document.getElementById("legend").innerHTML = [5,4,3,2,1,0].map(i => `
+    <label><input type="checkbox" id="lv${i}" data-lv="${i}" ${shown.has(i) ? "checked" : ""}>
+      <span class="dot" style="background:${c[i]}"></span>
+      <span>${t.lvl[i]}<span class="range">${t.range[i]}</span></span>
+      <span class="count">${counts[i]}</span></label>`).join("");
+
+  const sum = document.getElementById("summary");
+  if (counts[5]) { sum.className = "alert bad"; sum.innerHTML = `<strong>${t.sumBad(counts[5])}</strong><small>${t.sumBadHint}</small>`; }
+  else if (counts[4]) { sum.className = "alert warn"; sum.innerHTML = `<strong>${t.sumWarn(counts[4])}</strong><small>${t.sumWarnHint}</small>`; }
+  else { sum.className = "alert ok"; sum.innerHTML = `<strong>${t.sumOk}</strong><small>${t.sumOkHint} (${inView.length} ${t.stations})</small>`; }
+
+  const top = inView.filter(s => levelOf(s) >= 4 && shown.has(levelOf(s))).sort((a, b) => (b.pct ?? 0) - (a.pct ?? 0)).slice(0, 12);
+  document.getElementById("list").innerHTML = top.length ? top.map(s => `
+    <button class="item" type="button" data-id="${s.id}">
+      <span class="bar" style="background:${c[levelOf(s)]}"></span>
+      <span><span class="nm">${nm(s.name)}</span><br><span class="pv">${nm(s.province)}</span></span>
+      <span class="pct">${fmt(s.pct, 0)}%</span>
+    </button>`).join("") : `<div class="empty">${t.noneHigh}</div>`;
+}
+
+// ---- Flooded roads (Longdo Traffic / iTIC reports) ----
+const RCOL = () => { const s = getComputedStyle(document.documentElement); return ["--r0","--r1","--r2","--r3","--r4","--r5"].map(k => s.getPropertyValue(k).trim()); };
+// 1 shallow (≤10cm), 2 deep (10–20), 3 very deep (20–30), 4 impassable (>30 or closed), 5 depth not reported
+function roadCat(r) {
+  if (r.closed) return 4;
+  const d = r.depth;
+  if (d == null) return 5;
+  return d <= 10 ? 1 : d <= 20 ? 2 : d <= 30 ? 3 : 4;
+}
+const SEV = [0, 2, 3, 4, 5, 1]; // sort order: impassable first, unknown depth last
+const fmtTime = iso => iso ? new Date(iso).toLocaleString(lang === "th" ? "th-TH" : "en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "–";
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+
+function roadIcon(r) {
+  const c = roadCat(r), col = RCOL()[c];
+  const label = r.closed && r.depth == null ? "✕" : r.depth != null ? `${Math.round(r.depth)}<small>${T().cm}</small>` : "?";
+  const w = r.depth != null ? 52 : 26;
+  return L.divIcon({ className: "road-ic wet", html: `<span style="background:${col}">${label}</span>`, iconSize: [w, 22], iconAnchor: [w / 2, 11] });
+}
+
+function roadPopup(r) {
+  const t = T(), c = roadCat(r), col = RCOL()[c];
+  const gq = encodeURIComponent(`${r.lat},${r.lng}`);
+  const tag = r.closed ? t.closedTag : r.passable ? t.passableTag : "";
+  const desc = nm(r.desc);
+  return `<div class="pop">
+    <h3>${esc(nm(r.title))}</h3>
+    ${r.depth != null ? `<div class="depthbar"><span class="big" style="color:${col}">${Math.round(r.depth)}</span><span>${t.cm} ${t.depthNow}</span></div>` : ""}
+    <span class="pill" style="background:${col}">${t.roadCat[c]}</span> <span style="margin-left:4px">${t.roadAdvice[c]}</span>
+    ${tag ? `<div style="margin-top:6px;font-weight:600">${tag}</div>` : ""}
+    <dl class="kv">
+      <dt>${t.src}</dt><dd style="font-family:var(--font)">${t.srcName[r.source]}</dd>
+      <dt>${t.reported}</dt><dd>${fmtTime(r.start)}</dd>
+      <dt>${t.until}</dt><dd>${fmtTime(r.stop)}</dd>
+    </dl>
+    ${desc ? `<details><summary>${t.details}</summary><p style="white-space:pre-line;margin:6px 0 0;font-size:12px">${esc(desc)}</p></details>` : ""}
+    ${r.image ? `<a href="${esc(r.image)}" target="_blank" rel="noopener"><img src="${esc(r.image)}" alt="" style="margin-top:8px;border-radius:6px;max-height:140px;width:100%;object-fit:cover"></a>` : ""}
+    <a class="gmaps" href="https://www.google.com/maps/search/?api=1&query=${gq}" target="_blank" rel="noopener">${t.openGmaps}</a>
+  </div>`;
+}
+
+function buildRoadMarkers() {
+  roadMarkers.forEach(m => m.remove());
+  roadMarkers = roadData.reports.map(r => {
+    const m = L.marker([r.lat, r.lng], { icon: roadIcon(r), zIndexOffset: 1000 + SEV[roadCat(r)] * 100, riseOnHover: true, title: nm(r.title) });
+    m.road = r;
+    m.bindPopup(() => roadPopup(r), { maxWidth: 300 });
+    return m;
+  });
+  applyFilter();
+}
+
+function updateRoadView() {
+  const t = T(), rc = RCOL();
+  document.getElementById("roadscale").innerHTML = [1,2,3,4,5].map(i =>
+    `<div><span class="sq" style="background:${rc[i]}"></span><span class="cm">${t.roadCm[i]}</span><span>${t.roadAdvice[i]}</span></div>`).join("");
+  const sum = document.getElementById("roadSummary"), list = document.getElementById("roadList");
+  if (!roadData) {
+    sum.className = "alert"; sum.innerHTML = roadErr ? `<strong>${t.roadErr}</strong><small>${esc(roadErr)}</small>` : `<strong>…</strong>`;
+    list.innerHTML = ""; return;
+  }
+  const b = map.getBounds();
+  const inView = roadData.reports.filter(r => b.contains([r.lat, r.lng]))
+    .sort((a, b) => SEV[roadCat(b)] - SEV[roadCat(a)] || (b.depth ?? 0) - (a.depth ?? 0) || Date.parse(b.start) - Date.parse(a.start));
+  document.getElementById("roadCount").textContent = roadData.reports.length;
+  if (inView.length) {
+    const closed = inView.filter(r => roadCat(r) === 4).length, deep = inView.filter(r => roadCat(r) === 3).length;
+    sum.className = closed || deep ? "alert bad" : "alert warn";
+    sum.innerHTML = `<strong>${t.roadSumBad(inView.length)}</strong><small>${t.roadSumBadHint(closed, deep)}</small>`;
+  } else { sum.className = "alert ok"; sum.innerHTML = `<strong>${t.roadSumOk}</strong><small>${t.roadSumOkHint}</small>`; }
+  list.innerHTML = inView.length ? inView.slice(0, 25).map(r => `
+    <button class="item" type="button" data-road="${esc(r.id)}">
+      <span class="bar" style="background:${rc[roadCat(r)]}"></span>
+      <span><span class="nm">${esc(nm(r.title))}</span><br><span class="pv">${t.roadCat[roadCat(r)]} · ${fmtTime(r.start)}</span></span>
+      <span class="pct">${r.depth != null ? Math.round(r.depth) + " " + t.cm : r.closed ? "✕" : ""}</span>
+    </button>`).join("") : `<div class="empty">${t.noRoadFlood}</div>`;
+}
+
+async function loadRoads() {
+  try {
+    const r = await fetch("/api/roadflood");
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error || r.status);
+    roadData = j; roadErr = null;
+    buildRoadMarkers();
+  } catch (e) {
+    roadErr = e.message;
+    updateRoadView();
+  }
+}
+
+function renderStatic() {
+  const t = T();
+  document.documentElement.lang = lang;
+  document.querySelectorAll("[data-t]").forEach(el => { el.innerHTML = t[el.dataset.t]; });
+  document.getElementById("lang").textContent = lang === "en" ? "ไทย" : "EN";
+  const near = document.getElementById("near"); if (near) near.textContent = t.myLoc;
+  document.getElementById("places").innerHTML = PLACES.map(p => `<button class="btn" type="button" data-place="${p.key}">${p[lang]}</button>`).join("");
+  const sel = document.getElementById("province"), cur = sel.value;
+  sel.innerHTML = `<option value="">${t.allProvinces}</option>` +
+    (data ? data.provinces.filter(p => data.stations.some(s => s.provinceCode === p.code))
+      .sort((a, b) => nm(a.name).localeCompare(nm(b.name), lang))
+      .map(p => `<option value="${p.code}">${nm(p.name)}</option>`).join("") : "");
+  sel.value = cur;
+  if (data) document.getElementById("updated").textContent = `${t.updated} ${new Date(data.fetchedAt).toLocaleTimeString(lang === "th" ? "th-TH" : "en-GB", { hour: "2-digit", minute: "2-digit" })}`;
+  if (data) document.getElementById("riverCount").textContent = data.stations.length;
+  if (!data) document.getElementById("status").textContent = t.loading;
+  updateView();
+}
+
+async function load() {
+  const st = document.getElementById("status");
+  st.hidden = false; st.className = "status"; st.textContent = T().loading;
+  try {
+    const r = await fetch("/api/waterlevel");
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error || r.status);
+    data = j;
+    st.hidden = true;
+    buildMarkers();
+    renderStatic();
+  } catch (e) {
+    st.className = "status err"; st.textContent = T().err + e.message;
+  }
+}
+
+// events
+document.getElementById("lang").onclick = () => {
+  lang = lang === "en" ? "th" : "en";
+  try { localStorage.setItem("tww-lang", lang); } catch {}
+  renderStatic();
+  if (roadData) buildRoadMarkers();
+  map.closePopup();
+};
+document.getElementById("refresh").onclick = () => { load(); loadRoads(); };
+document.getElementById("showRoads").onchange = applyFilter;
+document.getElementById("showRivers").onchange = applyFilter;
+document.getElementById("roadList").onclick = e => {
+  const b = e.target.closest(".item"); if (!b) return;
+  const m = roadMarkers.find(m => String(m.road.id) === b.dataset.road); if (!m) return;
+  map.flyTo(m.getLatLng(), 15); map.once("moveend", () => m.openPopup());
+};
+// shrink road depth labels to plain squares when zoomed out
+const setFar = () => document.getElementById("map").classList.toggle("far", map.getZoom() < 11);
+map.on("zoomend", setFar); setFar();
+document.getElementById("places").onclick = e => {
+  const p = PLACES.find(x => x.key === e.target.dataset.place); if (!p) return;
+  document.getElementById("province").value = ""; applyFilter();
+  p.b ? map.flyToBounds(p.b) : map.flyTo(p.c, p.z);
+};
+document.getElementById("province").onchange = e => {
+  applyFilter();
+  const pts = data.stations.filter(s => s.provinceCode === e.target.value).map(s => [s.lat, s.lng]);
+  pts.length ? map.flyToBounds(pts, { padding: [40, 40], maxZoom: 11 }) : map.flyToBounds(PLACES[0].b);
+};
+document.getElementById("legend").onchange = e => {
+  const lv = +e.target.dataset.lv; e.target.checked ? shown.add(lv) : shown.delete(lv); applyFilter();
+};
+document.getElementById("list").onclick = e => {
+  const b = e.target.closest(".item"); if (!b) return;
+  const m = markers.find(m => String(m.station.id) === b.dataset.id); if (!m) return;
+  map.flyTo(m.getLatLng(), 12); map.once("moveend", () => m.openPopup());
+};
+map.on("moveend", updateView);
+setInterval(() => { load(); loadRoads(); }, 5 * 60 * 1000);
+
+renderStatic();
+load();
+loadRoads();
+addEventListener("load", () => { map.invalidateSize(); map.setView(PLACES[1].c, PLACES[1].z); });
+</script>
+</body>
+</html>

@@ -1,0 +1,13 @@
+{
+  "name": "thai-water-watch",
+  "version": "1.0.0",
+  "description": "Live map of flooded roads and river levels in Thailand for travel planning",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT"
+}
