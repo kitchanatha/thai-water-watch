@@ -151,6 +151,28 @@ async function getRoadData() {
   return body;
 }
 
+// --- Live traffic cameras (iTIC Foundation / Department of Highways, via Longdo's public camera feed) ---
+// Each camera has an HLS stream the browser plays directly (the stream servers allow cross-site playback).
+const CAMERA_SOURCE = "https://camera.longdo.com/feed/?command=json";
+let camCache = { at: 0, body: null };
+async function getCameras() {
+  if (camCache.body && Date.now() - camCache.at < 10 * 60 * 1000) return camCache.body;
+  const raw = await fetchJson(CAMERA_SOURCE);
+  const cams = (Array.isArray(raw) ? raw : [])
+    .filter((c) => c.hls_url && /^https:\/\//.test(c.hls_url) && !/X\.X\.X\.X/.test(c.hls_url))
+    .map((c) => ({
+      id: String(c.camid),
+      title: String(c.title || "").trim(),
+      lat: Number(c.latitude), lng: Number(c.longitude),
+      org: c.organization === "กรมทางหลวง" ? "doh" : "itic",
+      hls: c.hls_url,
+    }))
+    .filter((c) => isFinite(c.lat) && isFinite(c.lng) && c.lat > 5 && c.lat < 21 && c.lng > 97 && c.lng < 106);
+  const body = JSON.stringify({ fetchedAt: new Date().toISOString(), cameras: cams });
+  camCache = { at: Date.now(), body };
+  return body;
+}
+
 const reports = require("./reports");
 
 function readBody(req, limit = 10 * 1024) {
@@ -315,6 +337,17 @@ const server = http.createServer(async (req, res) => {
   if (url.pathname === "/healthz") {
     res.writeHead(200, { "Content-Type": "text/plain" });
     return res.end(`ok (reports: ${await reports.check()}; routing: ${routing.enabled() ? "on" : "off, no ORS_API_KEY"})`);
+  }
+  if (url.pathname === "/api/cameras") {
+    try {
+      const body = await getCameras();
+      res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
+      return res.end(body);
+    } catch (e) {
+      console.error("Camera feed failed:", e.message);
+      if (camCache.body) { res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" }); return res.end(camCache.body); }
+      return sendJson(res, 502, { error: "Could not load the camera list: " + e.message });
+    }
   }
   if (url.pathname === "/api/roadflood") {
     try {

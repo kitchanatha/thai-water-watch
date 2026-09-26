@@ -56,3 +56,11 @@ Limits: 20 routes and 120 place searches per visitor per 10 minutes.
 planner, and hides itself 12 hours after the sensor time. `public/flood-prone.json` keeps the 36 sensor
 road segments as a permanent "flood-prone roads" layer. To refresh from a newer copy of that page, save
 its HTML and run `node tools/convert-snapshot.js <saved.html>`, then update the times in the script.
+
+## Live traffic cameras
+
+`/api/cameras` relays Longdo's public camera list (https://camera.longdo.com/feed/?command=json):
+iTIC Foundation and Department of Highways cameras with HLS streams, placeholder entries removed,
+cached 10 minutes. Tapping a camera opens a live viewer (hls.js from jsDelivr, or native HLS on older
+iPhones). Flood popups show "watch nearby camera" when one is within 1.5 km. Streams are about 3 Mbps,
+so playback pauses after 90 seconds and when the tab is hidden. Video © iTIC Foundation / DOH.

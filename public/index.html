@@ -179,6 +179,24 @@ main { position: relative; min-height: 0; }
 .votes .vq { width: 100%; font-weight: 600; }
 .votes .del { color: var(--l5); }
 
+/* Live cameras */
+.cam-ic span { display: grid; place-items: center; width: 100%; height: 100%; border-radius: 50%; background: #243b53; border: 2px solid #fff; box-shadow: 0 1px 4px rgb(0 0 0 / .4); box-sizing: border-box; }
+.cam-ic.on span { background: #0b6e8a; box-shadow: 0 0 0 4px rgb(11 110 138 / .35), 0 1px 4px rgb(0 0 0 / .4); }
+.far .cam-ic { transform: scale(.8); }
+.cam-sq { background: #243b53; border-radius: 50%; }
+.cam-view { position: absolute; z-index: 760; left: 56px; top: 10px; width: min(380px, calc(100% - 66px)); background: var(--panel); color: var(--ink);
+  border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 10px 30px rgb(0 0 0 / .3); overflow: hidden; }
+.cam-head { display: flex; align-items: flex-start; gap: 8px; padding: 10px 10px 8px 12px; }
+.cam-head strong { flex: 1; font-size: 13.5px; line-height: 1.35; }
+.cam-x { padding: 3px 9px; }
+.cam-view video { display: block; width: 100%; aspect-ratio: 16 / 9; background: #0e171b; }
+.cam-status { margin: 0; padding: 8px 12px; font-size: 13px; background: var(--accent-soft); }
+.cam-status.bad { background: color-mix(in srgb, var(--l5) 14%, var(--panel)); color: var(--ink); }
+.cam-foot { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 8px 12px 10px; font-size: 12px; color: var(--muted); }
+.cam-foot a { color: var(--accent); margin-left: auto; }
+.cam-near { margin: 8px 0 2px; font-size: 12.5px; padding: 5px 10px; }
+@media (max-width: 760px) { .cam-view { left: 10px; width: calc(100% - 20px); } }
+
 /* BMA snapshot + flood-prone roads */
 .rp-ic span { display: block; width: 100%; height: 100%; transform: rotate(45deg); border: 2px solid #fff; box-shadow: 0 1px 3px rgb(0 0 0 / .4); box-sizing: border-box; }
 .road-ic.snap span { box-shadow: 0 0 0 2px rgb(155 28 28 / .35), 0 1px 4px rgb(0 0 0 / .35); }
@@ -297,6 +315,7 @@ main { position: relative; min-height: 0; }
       <label id="trafficRow" hidden><input type="checkbox" id="showTraffic" checked><span class="sq traffic-sq"></span><span data-t="layerTraffic"></span></label>
       <label id="snapRow" hidden><input type="checkbox" id="showSnap" checked><span class="sq" style="background:#9b1c1c"></span><span id="snapLbl"></span><span class="count" id="snapCount"></span></label>
       <label id="proneRow" hidden><input type="checkbox" id="showProne"><span class="sq prone-sq"></span><span data-t="layerProne"></span><span class="count" id="proneCount"></span></label>
+      <label id="camRow" hidden><input type="checkbox" id="showCams" checked><span class="sq cam-sq"></span><span data-t="layerCams"></span><span class="count" id="camCount"></span></label>
     </div>
     <div class="basemap" id="baseRow" hidden>
       <span data-t="baseMap"></span>
@@ -373,6 +392,20 @@ main { position: relative; min-height: 0; }
     </form>
   </div>
 
+
+  <div class="cam-view" id="camView" role="dialog" aria-labelledby="camTitle" hidden>
+    <div class="cam-head">
+      <strong id="camTitle"></strong>
+      <button class="btn cam-x" type="button" id="camClose" aria-label="Close">✕</button>
+    </div>
+    <video id="camVideo" muted autoplay playsinline controls></video>
+    <p class="cam-status" id="camStatus" hidden></p>
+    <div class="cam-foot">
+      <span id="camOrg"></span>
+      <button class="btn" type="button" id="camResume" hidden data-t="camResume"></button>
+      <a href="https://live.iticfoundation.org/" target="_blank" rel="noopener" data-t="camMore"></a>
+    </div>
+  </div>
   <div class="toast" id="toast" role="status" hidden></div>
 </main>
 
@@ -440,6 +473,11 @@ const I18N = {
     rpH: (n, t) => `District office reports (${n}) · ${t}`,
     proneInfo: "The city has a flood sensor on this stretch: a spot that floods often. Check it before you travel when it rains.",
     snapCredit: (link, src) => `Imported from ${link}. Original sources: ${src}.`,
+    layerCams: "Live traffic cameras (iTIC)", camNear: d => `Watch nearby camera (${d})`,
+    camLoading: "Loading live video…", camOffline: "This camera is offline right now. Try another one nearby.",
+    camSlow: "The video is taking a while. The camera may be offline.", camNoSupport: "This browser can't play the live video.",
+    camPaused: "Paused after 90 seconds to save mobile data (these streams use about 25 MB a minute).", camResume: "Keep watching", camMore: "More on iTIC ↗",
+    camOrg: { doh: "Department of Highways camera · via iTIC", itic: "iTIC Foundation camera" },
     allDistricts: "Bangkok district: all", districtLbl: "District",
     layerTraffic: "Live traffic (Google)", baseMap: "Base map",
     gFallback: "Google Maps is unavailable right now, showing OpenStreetMap instead.",
@@ -508,6 +546,11 @@ const I18N = {
     rpH: (n, t) => `รายงานจากสำนักงานเขต (${n}) · ${t}`,
     proneInfo: "ช่วงถนนนี้ กทม. ติดตั้งเซ็นเซอร์วัดน้ำท่วม เป็นจุดที่น้ำท่วมขังบ่อย ควรตรวจสอบก่อนเดินทางเมื่อฝนตก",
     snapCredit: (link, src) => `นำเข้าจาก ${link} แหล่งข้อมูลต้นทาง: ${src}`,
+    layerCams: "กล้องจราจรสด (iTIC)", camNear: d => `ดูกล้องใกล้ๆ (${d})`,
+    camLoading: "กำลังโหลดภาพสด…", camOffline: "กล้องนี้ไม่ออนไลน์ในขณะนี้ ลองกล้องอื่นใกล้ๆ",
+    camSlow: "ภาพโหลดช้า กล้องอาจไม่ออนไลน์", camNoSupport: "เบราว์เซอร์นี้เล่นภาพสดไม่ได้",
+    camPaused: "หยุดภาพหลัง 90 วินาทีเพื่อประหยัดเน็ตมือถือ (ภาพสดใช้ข้อมูลประมาณ 25 MB ต่อนาที)", camResume: "ดูต่อ", camMore: "ดูเพิ่มที่ iTIC ↗",
+    camOrg: { doh: "กล้องกรมทางหลวง · ผ่าน iTIC", itic: "กล้องมูลนิธิ iTIC" },
     allDistricts: "เขตในกรุงเทพฯ: ทั้งหมด", districtLbl: "เขต",
     layerTraffic: "สภาพการจราจร (Google)", baseMap: "แผนที่พื้นฐาน",
     gFallback: "ใช้ Google Maps ไม่ได้ในขณะนี้ จึงแสดงแผนที่ OpenStreetMap แทน",
@@ -584,6 +627,7 @@ function popupHtml(s) {
       <dt>${t.measured}</dt><dd>${s.time || "–"}</dd>
     </dl>
     ${ageHours(s) > 6 ? `<div class="stale">${t.stale}</div>` : ""}
+    ${camBtn(s.lat, s.lng)}
     <a class="gmaps" href="https://www.google.com/maps/search/?api=1&query=${gq}" target="_blank" rel="noopener">${t.openGmaps}</a>
   </div>`;
 }
@@ -689,6 +733,7 @@ function roadPopup(r) {
       ${mine()[r.id] ? `<button class="btn del" type="button" data-del="${esc(r.id)}">${t.deleteMine}</button>` : ""}
     </div>` : ""}
     ${desc ? `<details><summary>${t.details}</summary><p style="white-space:pre-line;margin:6px 0 0;font-size:12px">${esc(desc)}</p></details>` : ""}
+    ${camBtn(r.lat, r.lng)}
     ${r.image ? `<a href="${esc(r.image)}" target="_blank" rel="noopener"><img src="${esc(r.image)}" alt="" style="margin-top:8px;border-radius:6px;max-height:140px;width:100%;object-fit:cover"></a>` : ""}
     <a class="gmaps" href="https://www.google.com/maps/search/?api=1&query=${gq}" target="_blank" rel="noopener">${t.openGmaps}</a>
   </div>`;
@@ -926,6 +971,112 @@ async function load() {
   }
 }
 
+// ---- Live traffic cameras (iTIC Foundation / Department of Highways) ----
+let CAMS = [], camMarkers = [], camHls = null, camOpen = null, camLoadTimer = null, camStopTimer = null;
+const HLS_SRC = "https://cdn.jsdelivr.net/npm/hls.js@1.5.15/dist/hls.min.js";
+const CAM_MAX_MS = 90 * 1000; // streams are ~3 Mbps (about 25 MB a minute): pause after 90 s to spare iTIC's servers (and the viewer's data)
+const CAM_ICON = `<span><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path fill="#fff" d="M4 7h11a2 2 0 0 1 2 2v1.5l3.2-2.1A.5.5 0 0 1 21 8.8v6.4a.5.5 0 0 1-.8.4L17 13.5V15a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2z"/></svg></span>`;
+
+function distMeters(aLat, aLng, bLat, bLng) {
+  const k = Math.PI / 180, x = (bLng - aLng) * k * Math.cos((aLat + bLat) / 2 * k), y = (bLat - aLat) * k;
+  return Math.hypot(x, y) * 6371000;
+}
+function nearestCam(lat, lng, maxM = 1500) {
+  let best = null, bd = Infinity;
+  for (const c of CAMS) { const d = distMeters(lat, lng, c.lat, c.lng); if (d < bd) { bd = d; best = c; } }
+  return best && bd <= maxM ? { cam: best, d: bd } : null;
+}
+const fmtDist = m => m < 1000 ? `${Math.round(m / 10) * 10} ${lang === "th" ? "ม." : "m"}` : `${(m / 1000).toFixed(1)} ${T().km}`;
+// "Watch nearby camera" button for flood popups
+function camBtn(lat, lng) {
+  const n = CAMS.length && nearestCam(lat, lng);
+  return n ? `<button class="btn cam-near" type="button" data-cam="${esc(n.cam.id)}">▶ ${T().camNear(fmtDist(n.d))}</button>` : "";
+}
+
+function drawCams() {
+  camMarkers.forEach(m => m.remove()); camMarkers = [];
+  if (!$("showCams").checked) return;
+  camMarkers = CAMS.map(c => {
+    const m = map.marker({ lat: c.lat, lng: c.lng, cls: "cam-ic" + (camOpen === c.id ? " on" : ""), html: CAM_ICON, w: 22, h: 22, z: 200,
+      title: c.title, onClick: () => openCam(c.id), data: c });
+    m.show();
+    return m;
+  });
+}
+
+let hlsLoading = null;
+function loadHls() {
+  if (window.Hls) return Promise.resolve();
+  if (!hlsLoading) hlsLoading = new Promise((res, rej) => {
+    const s = document.createElement("script");
+    s.src = HLS_SRC; s.onload = res; s.onerror = () => { hlsLoading = null; rej(new Error("hls.js failed to load")); };
+    document.head.appendChild(s);
+  });
+  return hlsLoading;
+}
+function camStatus(msg, bad) {
+  const el = $("camStatus");
+  el.textContent = msg || ""; el.hidden = !msg; el.classList.toggle("bad", !!bad);
+}
+function stopStream() {
+  clearTimeout(camLoadTimer); clearTimeout(camStopTimer);
+  if (camHls) { camHls.destroy(); camHls = null; }
+  const v = $("camVideo");
+  v.pause(); v.removeAttribute("src"); v.load();
+}
+async function openCam(id) {
+  const c = CAMS.find(x => x.id === id); if (!c) return;
+  const t = T(), v = $("camVideo");
+  map.closePopup();
+  stopStream();
+  camOpen = id;
+  $("camView").hidden = false;
+  $("camTitle").textContent = c.title;
+  $("camOrg").textContent = t.camOrg[c.org];
+  $("camResume").hidden = true;
+  camStatus(t.camLoading);
+  drawCams();
+  v.onplaying = () => camStatus("");
+  camLoadTimer = setTimeout(() => { if (v.readyState < 2) camStatus(t.camSlow, true); }, 15000);
+  camStopTimer = setTimeout(() => { stopStream(); camStatus(t.camPaused); $("camResume").hidden = false; }, CAM_MAX_MS);
+  try {
+    // Prefer hls.js (robust live playback); fall back to the browser's own HLS (older iPhones)
+    try { await loadHls(); } catch {}
+    if (camOpen !== id) return;             // viewer switched cameras while loading
+    if (!(window.Hls && Hls.isSupported())) {
+      if (!v.canPlayType("application/vnd.apple.mpegurl")) { camStatus(t.camNoSupport, true); return; }
+      v.src = c.hls;
+      v.onerror = () => camStatus(t.camOffline, true);
+    } else {
+      camHls = new Hls({ liveSyncDurationCount: 2, maxBufferLength: 8 });
+      camHls.on(Hls.Events.ERROR, (e, d) => { if (d.fatal) { stopStream(); camStatus(t.camOffline, true); } });
+      camHls.loadSource(c.hls);
+      camHls.attachMedia(v);
+    }
+    const p = v.play(); if (p) p.catch(() => {});
+  } catch (e) {
+    camStatus(t.camOffline, true);
+  }
+}
+function closeCam() {
+  stopStream();
+  camOpen = null;
+  $("camView").hidden = true;
+  drawCams();
+}
+async function loadCams() {
+  try {
+    const j = await (await fetch("/api/cameras")).json();
+    if (!j.cameras) throw new Error(j.error || "no cameras");
+    CAMS = j.cameras;
+    $("camRow").hidden = false;
+    $("camCount").textContent = CAMS.length;
+    drawCams();
+  } catch (e) { console.warn("Cameras unavailable:", e.message); }
+}
+// Don't keep streaming in a background tab
+document.addEventListener("visibilitychange", () => { if (document.hidden && camOpen) closeCam(); });
+
 // ---- BMA snapshot (sensors + district office reports) and flood-prone roads, imported from a community page ----
 let SNAP = null, PRONE = null, snapLayers = [], proneLayers = [], snapMarkers = {};
 const SNAP_COL = { R: "#9b1c1c", r: "#e53935", a: "#f59e0b" };
@@ -945,6 +1096,7 @@ function snapPopup(r) {
     <span class="pill" style="background:${col}">${t.snapLv[r.level]}</span>
     <ul class="snap-pts">${r.points.map(p => `<li>${esc(p.spot)}: <b>≥ ${p.cm} ${t.cm}</b> <small>${esc(p.code)}</small></li>`).join("")}</ul>
     <div class="stale">${t.snapWhen(fmtTime(SNAP.sensorTime))}</div>
+    ${camBtn(...midOf(r.lines))}
     <a class="gmaps" href="${gmapsAt(midOf(r.lines))}" target="_blank" rel="noopener">${t.openGmaps}</a>
   </div>`;
 }
@@ -958,6 +1110,7 @@ function rpPopup(r) {
     ${r.water && r.water !== "ไม่ระบุ" ? ` <b style="margin-left:4px">${esc(r.water)}</b>` : ""}
     ${r.pending ? `<div style="margin-top:6px;font-weight:600">${t.rpPending}</div>` : ""}
     <div class="stale">${t.snapWhen(fmtTime(SNAP.reportTime))}</div>
+    ${camBtn(at[0], at[1])}
     <a class="gmaps" href="${gmapsAt(at)}" target="_blank" rel="noopener">${t.openGmaps}</a>
   </div>`;
 }
@@ -1186,6 +1339,15 @@ async function planRoute() {
   }
 }
 
+// camera controls
+$("showCams").onchange = drawCams;
+$("camClose").onclick = closeCam;
+$("camResume").onclick = () => camOpen && openCam(camOpen);
+document.addEventListener("click", e => {
+  const b = e.target.closest("[data-cam]"); if (!b) return;
+  openCam(b.dataset.cam);
+});
+
 // BMA snapshot controls
 $("showSnap").onchange = drawSnap;
 $("showProne").onchange = drawProne;
@@ -1333,6 +1495,7 @@ async function boot() {
   loadRoads();
   loadDistricts();
   loadSnapshot();
+  loadCams();
   setInterval(() => { load(); loadRoads(); }, 5 * 60 * 1000);
 }
 boot();

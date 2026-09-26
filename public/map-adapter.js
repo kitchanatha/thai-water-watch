@@ -3,7 +3,7 @@
 //
 // createMap(el, { center:[lat,lng], zoom, googleKey, language, dark }) -> Promise<map>
 //   map.kind                      "google" | "osm"
-//   map.marker(opts)              opts: { lat, lng, html, cls, w, h, ax, ay, z, title, popup:()=>html, draggable }
+//   map.marker(opts)              opts: { lat, lng, html, cls, w, h, ax, ay, z, title, popup:()=>html, onClick, draggable }
 //                                 -> { show(), hide(), remove(), open(), getLatLng(), setLatLng(ll), data }
 //   map.getBounds().contains([lat,lng])
 //   map.getZoom()
@@ -44,9 +44,10 @@
         const lk = L.marker([m.lat, m.lng], {
           icon: L.divIcon({ className: "mk " + (m.cls || ""), html: m.html || "", iconSize: [m.w, m.h],
             iconAnchor: [m.ax ?? m.w / 2, m.ay ?? m.h / 2], popupAnchor: [0, -(m.ay ?? m.h / 2)] }),
-          zIndexOffset: m.z || 0, title: m.title || "", draggable: !!m.draggable, riseOnHover: true, keyboard: !!m.popup,
+          zIndexOffset: m.z || 0, title: m.title || "", draggable: !!m.draggable, riseOnHover: true, keyboard: !!(m.popup || m.onClick),
         });
         if (m.popup) lk.bindPopup(m.popup, { maxWidth: 300 });
+        if (m.onClick) lk.on("click", () => m.onClick());
         return {
           data: m.data,
           show() { if (!lm.hasLayer(lk)) lk.addTo(lm); },
@@ -153,11 +154,13 @@
           info.setPosition(it.ll);
           info.open({ map: gm });
         };
-        if (m.popup) {
+        if (m.popup || m.onClick) {
+          const act = () => (m.onClick ? m.onClick() : open());
           div.style.cursor = "pointer";
           div.tabIndex = 0;
-          div.addEventListener("click", (e) => { e.stopPropagation(); open(); });
-          div.addEventListener("keydown", (e) => { if (e.key === "Enter") open(); });
+          div.setAttribute("role", "button");
+          div.addEventListener("click", (e) => { e.stopPropagation(); act(); });
+          div.addEventListener("keydown", (e) => { if (e.key === "Enter") act(); });
           g.OverlayView.preventMapHitsAndGesturesFrom(div);
         }
         items.add(it);
