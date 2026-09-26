@@ -210,6 +210,7 @@ main { position: relative; min-height: 0; }
     <h2 data-t="goTo"></h2>
     <div class="chips" id="places"></div>
     <select id="province" aria-label="Province"></select>
+    <select id="district" aria-label="Bangkok district"></select>
   </section>
 
   <section>
@@ -306,10 +307,10 @@ const I18N = {
     tagline: "Live river and canal water levels across Thailand. Check before you travel.",
     refresh: "Refresh", loading: "Loading live water levels…", goTo: "Go to", levels: "Water level (% of riverbank)",
     watchList: "Highest in this map view", allThailand: "All Thailand", allProvinces: "All provinces",
-    updated: "Updated", stations: "stations", noneHigh: "No high-water stations in this view.",
-    sumBad: n => `${n} station${n > 1 ? "s" : ""} overflowing banks in this view`,
-    sumWarn: n => `${n} station${n > 1 ? "s" : ""} with high water in this view`,
-    sumOk: "Water levels look normal in this view",
+    updated: "Updated", stations: "stations", noneHigh: w => `No high-water stations ${w}.`,
+    sumBad: (n, w) => `${n} station${n > 1 ? "s" : ""} overflowing banks ${w}`,
+    sumWarn: (n, w) => `${n} station${n > 1 ? "s" : ""} with high water ${w}`,
+    sumOk: w => `Water levels look normal ${w}`,
     sumBadHint: "Expect possible flooding nearby. Check local news and allow extra travel time.",
     sumWarnHint: "Rivers are high. Watch for rising water, especially after heavy rain.",
     sumOkHint: "No stations above 70% of bank capacity.",
@@ -320,14 +321,14 @@ const I18N = {
     stale: "Reading is over 6 hours old.", openGmaps: "Open in Google Maps ↗", msl: "m MSL",
     myLoc: "Near me", err: "Could not load data. Is the server running? ",
     layersH: "Show on map", layerRoads: "Flooded roads", layerRivers: "Rivers & canals",
-    roadScaleH: "Water on the road", roadListH: "Flooded roads in this view",
+    roadScaleH: "Water on the road", roadListH: "Flooded roads", inView: "in this view", inDistrict: d => `in ${d} district`,
     roadCat: ["", "Shallow", "Deep", "Very deep", "Impassable", "Depth not reported"],
     roadAdvice: ["", "Passable, drive slowly", "Motorbikes avoid, cars slow", "Small cars avoid", "Closed or most vehicles cannot pass", "Flooding reported, check before going"],
     roadCm: ["", "≤ 10 cm", "10–20 cm", "20–30 cm", "> 30 cm", "?"],
-    noRoadFlood: "No flooded roads reported in this view.",
-    roadSumBad: n => `${n} flooded road report${n > 1 ? "s" : ""} in this view`,
+    noRoadFlood: w => `No flooded roads reported ${w}.`,
+    roadSumBad: (n, w) => `${n} flooded road report${n > 1 ? "s" : ""} ${w}`,
     roadSumBadHint: (closed, deep) => [closed ? `${closed} impassable or closed` : "", deep ? `${deep} deeper than 20 cm` : ""].filter(Boolean).join(" · ") || "Mostly shallow or depth not reported. Allow extra travel time.",
-    roadSumOk: "No flooded roads reported in this view", roadSumOkHint: "Based on live reports from the Department of Highways, BMA and drivers.",
+    roadSumOk: w => `No flooded roads reported ${w}`, roadSumOkHint: "Based on live reports from the Department of Highways, BMA and drivers.",
     depthNow: "of water reported", reported: "Reported", until: "Expected until", src: "Source",
     srcName: { doh: "Department of Highways", itic: "iTIC traffic centre (often citing BMA)", user: "Driver report (unverified)", community: "Thai Water Watch visitor (unverified)" },
     reportBtn: "+ Report flooding", pickTitle: "Tap the map where the water is", pickLoc: "Use my location", cancel: "Cancel",
@@ -337,6 +338,7 @@ const I18N = {
     rfNoteQ: "Note (optional)", rfPublic: "Your report is public and shows for 6 hours. Please don't include personal information.",
     rfSend: "Send report", rfNeedDepth: "Choose how deep the water is.", rfThanks: "Report sent. Thank you!",
     stillQ: "Is it still flooded?", voteStill: "Still flooded", voteCleared: "Water is gone", deleteMine: "Delete my report",
+    allDistricts: "Bangkok district: all", districtLbl: "District",
     layerTraffic: "Live traffic (Google)", baseMap: "Base map",
     gFallback: "Google Maps is unavailable right now, showing OpenStreetMap instead.",
     voteThanks: "Thanks for confirming", deleted: "Report deleted", locErr: "Couldn't get your location. Tap the map instead.",
@@ -349,10 +351,10 @@ const I18N = {
     tagline: "ระดับน้ำในแม่น้ำและคลองทั่วประเทศไทยแบบเรียลไทม์ ตรวจสอบก่อนเดินทาง",
     refresh: "รีเฟรช", loading: "กำลังโหลดข้อมูลระดับน้ำ…", goTo: "ไปที่", levels: "ระดับน้ำ (% ความจุลำน้ำ)",
     watchList: "สถานีที่น้ำสูงสุดในแผนที่นี้", allThailand: "ทั้งประเทศ", allProvinces: "ทุกจังหวัด",
-    updated: "อัปเดต", stations: "สถานี", noneHigh: "ไม่มีสถานีที่น้ำมากในบริเวณนี้",
-    sumBad: n => `น้ำล้นตลิ่ง ${n} สถานีในบริเวณนี้`,
-    sumWarn: n => `น้ำมาก ${n} สถานีในบริเวณนี้`,
-    sumOk: "ระดับน้ำปกติในบริเวณนี้",
+    updated: "อัปเดต", stations: "สถานี", noneHigh: w => `ไม่มีสถานีที่น้ำมาก${w}`,
+    sumBad: (n, w) => `น้ำล้นตลิ่ง ${n} สถานี${w}`,
+    sumWarn: (n, w) => `น้ำมาก ${n} สถานี${w}`,
+    sumOk: w => `ระดับน้ำปกติ${w}`,
     sumBadHint: "อาจมีน้ำท่วมใกล้เคียง ติดตามข่าวท้องถิ่นและเผื่อเวลาเดินทาง",
     sumWarnHint: "ระดับน้ำในลำน้ำสูง เฝ้าระวังโดยเฉพาะหลังฝนตกหนัก",
     sumOkHint: "ไม่มีสถานีที่ระดับน้ำเกิน 70% ของความจุลำน้ำ",
@@ -363,14 +365,14 @@ const I18N = {
     stale: "ข้อมูลเก่ากว่า 6 ชั่วโมง", openGmaps: "เปิดใน Google Maps ↗", msl: "ม.รทก.",
     myLoc: "ใกล้ฉัน", err: "โหลดข้อมูลไม่สำเร็จ เซิร์ฟเวอร์ทำงานอยู่หรือไม่? ",
     layersH: "แสดงบนแผนที่", layerRoads: "น้ำท่วมถนน", layerRivers: "แม่น้ำและคลอง",
-    roadScaleH: "ระดับน้ำบนถนน", roadListH: "ถนนที่น้ำท่วมในบริเวณนี้",
+    roadScaleH: "ระดับน้ำบนถนน", roadListH: "ถนนที่น้ำท่วม", inView: "ในบริเวณนี้", inDistrict: d => `ในเขต${d}`,
     roadCat: ["", "น้ำตื้น", "น้ำลึก", "น้ำลึกมาก", "ผ่านไม่ได้", "ไม่ระบุความลึก"],
     roadAdvice: ["", "ผ่านได้ ขับช้าๆ", "รถจักรยานยนต์ควรเลี่ยง", "รถเก๋งควรเลี่ยง", "ปิดถนนหรือรถส่วนใหญ่ผ่านไม่ได้", "มีรายงานน้ำท่วม ตรวจสอบก่อนเดินทาง"],
     roadCm: ["", "≤ 10 ซม.", "10–20 ซม.", "20–30 ซม.", "> 30 ซม.", "?"],
-    noRoadFlood: "ไม่มีรายงานน้ำท่วมถนนในบริเวณนี้",
-    roadSumBad: n => `รายงานน้ำท่วมถนน ${n} จุดในบริเวณนี้`,
+    noRoadFlood: w => `ไม่มีรายงานน้ำท่วมถนน${w}`,
+    roadSumBad: (n, w) => `รายงานน้ำท่วมถนน ${n} จุด${w}`,
     roadSumBadHint: (closed, deep) => [closed ? `ผ่านไม่ได้/ปิด ${closed} จุด` : "", deep ? `ลึกเกิน 20 ซม. ${deep} จุด` : ""].filter(Boolean).join(" · ") || "ส่วนใหญ่น้ำตื้นหรือไม่ระบุความลึก เผื่อเวลาเดินทาง",
-    roadSumOk: "ไม่มีรายงานน้ำท่วมถนนในบริเวณนี้", roadSumOkHint: "จากรายงานสดของกรมทางหลวง กทม. และผู้ขับขี่",
+    roadSumOk: w => `ไม่มีรายงานน้ำท่วมถนน${w}`, roadSumOkHint: "จากรายงานสดของกรมทางหลวง กทม. และผู้ขับขี่",
     depthNow: "ระดับน้ำที่รายงาน", reported: "รายงานเมื่อ", until: "คาดว่าถึง", src: "แหล่งข้อมูล",
     srcName: { doh: "กรมทางหลวง", itic: "ศูนย์ iTIC (มักอ้างอิง สำนักการระบายน้ำ กทม.)", user: "รายงานจากผู้ขับขี่ (ยังไม่ยืนยัน)", community: "ผู้ใช้ Thai Water Watch (ยังไม่ยืนยัน)" },
     reportBtn: "+ รายงานน้ำท่วม", pickTitle: "แตะบนแผนที่ตรงจุดที่น้ำท่วม", pickLoc: "ใช้ตำแหน่งของฉัน", cancel: "ยกเลิก",
@@ -380,6 +382,7 @@ const I18N = {
     rfNoteQ: "หมายเหตุ (ไม่บังคับ)", rfPublic: "รายงานจะแสดงต่อสาธารณะเป็นเวลา 6 ชั่วโมง กรุณาอย่าใส่ข้อมูลส่วนตัว",
     rfSend: "ส่งรายงาน", rfNeedDepth: "กรุณาเลือกระดับความลึกของน้ำ", rfThanks: "ส่งรายงานแล้ว ขอบคุณครับ/ค่ะ",
     stillQ: "ตอนนี้ยังท่วมอยู่ไหม?", voteStill: "ยังท่วมอยู่", voteCleared: "น้ำลดแล้ว", deleteMine: "ลบรายงานของฉัน",
+    allDistricts: "เขตในกรุงเทพฯ: ทั้งหมด", districtLbl: "เขต",
     layerTraffic: "สภาพการจราจร (Google)", baseMap: "แผนที่พื้นฐาน",
     gFallback: "ใช้ Google Maps ไม่ได้ในขณะนี้ จึงแสดงแผนที่ OpenStreetMap แทน",
     voteThanks: "ขอบคุณที่ช่วยยืนยัน", deleted: "ลบรายงานแล้ว", locErr: "หาตำแหน่งของคุณไม่ได้ กรุณาแตะบนแผนที่แทน",
@@ -491,7 +494,7 @@ function updateView() {
   if (!data) return;
   const t = T(), c = COLORS(), b = map.getBounds();
   const prov = document.getElementById("province").value;
-  const inView = data.stations.filter(s => b.contains([s.lat, s.lng]) && (!prov || s.provinceCode === prov));
+  const inView = data.stations.filter(s => inArea(s.lat, s.lng, b) && (!prov || s.provinceCode === prov));
 
   // legend counts reflect the current view
   const counts = [0,0,0,0,0,0];
@@ -503,9 +506,9 @@ function updateView() {
       <span class="count">${counts[i]}</span></label>`).join("");
 
   const sum = document.getElementById("summary");
-  if (counts[5]) { sum.className = "alert bad"; sum.innerHTML = `<strong>${t.sumBad(counts[5])}</strong><small>${t.sumBadHint}</small>`; }
-  else if (counts[4]) { sum.className = "alert warn"; sum.innerHTML = `<strong>${t.sumWarn(counts[4])}</strong><small>${t.sumWarnHint}</small>`; }
-  else { sum.className = "alert ok"; sum.innerHTML = `<strong>${t.sumOk}</strong><small>${t.sumOkHint} (${inView.length} ${t.stations})</small>`; }
+  if (counts[5]) { sum.className = "alert bad"; sum.innerHTML = `<strong>${t.sumBad(counts[5], where())}</strong><small>${t.sumBadHint}</small>`; }
+  else if (counts[4]) { sum.className = "alert warn"; sum.innerHTML = `<strong>${t.sumWarn(counts[4], where())}</strong><small>${t.sumWarnHint}</small>`; }
+  else { sum.className = "alert ok"; sum.innerHTML = `<strong>${t.sumOk(where())}</strong><small>${t.sumOkHint} (${inView.length} ${t.stations})</small>`; }
 
   const top = inView.filter(s => levelOf(s) >= 4 && shown.has(levelOf(s))).sort((a, b) => (b.pct ?? 0) - (a.pct ?? 0)).slice(0, 12);
   document.getElementById("list").innerHTML = top.length ? top.map(s => `
@@ -513,7 +516,7 @@ function updateView() {
       <span class="bar" style="background:${c[levelOf(s)]}"></span>
       <span><span class="nm">${nm(s.name)}</span><br><span class="pv">${nm(s.province)}</span></span>
       <span class="pct">${fmt(s.pct, 0)}%</span>
-    </button>`).join("") : `<div class="empty">${t.noneHigh}</div>`;
+    </button>`).join("") : `<div class="empty">${t.noneHigh(where())}</div>`;
 }
 
 // ---- Flooded roads (Longdo Traffic / iTIC reports) ----
@@ -547,6 +550,7 @@ function roadPopup(r) {
     <span class="pill" style="background:${col}">${t.roadCat[c]}</span> <span style="margin-left:4px">${t.roadAdvice[c]}</span>
     ${tag ? `<div style="margin-top:6px;font-weight:600">${tag}</div>` : ""}
     <dl class="kv">
+      ${r._d ? `<dt>${t.districtLbl}</dt><dd style="font-family:var(--font)">${esc(nm(r._d))}</dd>` : ""}
       <dt>${t.src}</dt><dd style="font-family:var(--font)">${t.srcName[r.source]}</dd>
       <dt>${t.reported}</dt><dd>${fmtTime(r.start)}</dd>
       <dt>${t.until}</dt><dd>${fmtTime(r.stop)}</dd>
@@ -574,6 +578,7 @@ function buildRoadMarkers() {
 
 function updateRoadView() {
   const t = T(), rc = RCOL();
+  document.querySelector('[data-t="roadListH"]').textContent = t.roadListH + (lang === "th" ? "" : " ") + where();
   document.getElementById("roadscale").innerHTML = [1,2,3,4,5].map(i =>
     `<div><span class="sq" style="background:${rc[i]}"></span><span class="cm">${t.roadCm[i]}</span><span>${t.roadAdvice[i]}</span></div>`).join("");
   const sum = document.getElementById("roadSummary"), list = document.getElementById("roadList");
@@ -582,20 +587,20 @@ function updateRoadView() {
     list.innerHTML = ""; return;
   }
   const b = map.getBounds();
-  const inView = roadData.reports.filter(r => b.contains([r.lat, r.lng]))
+  const inView = roadData.reports.filter(r => inArea(r.lat, r.lng, b))
     .sort((a, b) => SEV[roadCat(b)] - SEV[roadCat(a)] || (b.depth ?? 0) - (a.depth ?? 0) || Date.parse(b.start) - Date.parse(a.start));
   document.getElementById("roadCount").textContent = roadData.reports.length;
   if (inView.length) {
     const closed = inView.filter(r => roadCat(r) === 4).length, deep = inView.filter(r => roadCat(r) === 3).length;
     sum.className = closed || deep ? "alert bad" : "alert warn";
-    sum.innerHTML = `<strong>${t.roadSumBad(inView.length)}</strong><small>${t.roadSumBadHint(closed, deep)}</small>`;
-  } else { sum.className = "alert ok"; sum.innerHTML = `<strong>${t.roadSumOk}</strong><small>${t.roadSumOkHint}</small>`; }
+    sum.innerHTML = `<strong>${t.roadSumBad(inView.length, where())}</strong><small>${t.roadSumBadHint(closed, deep)}</small>`;
+  } else { sum.className = "alert ok"; sum.innerHTML = `<strong>${t.roadSumOk(where())}</strong><small>${t.roadSumOkHint}</small>`; }
   list.innerHTML = inView.length ? inView.slice(0, 25).map(r => `
     <button class="item" type="button" data-road="${esc(r.id)}">
       <span class="bar" style="background:${rc[roadCat(r)]}"></span>
-      <span><span class="nm">${esc(nm(r.title))}</span><br><span class="pv">${t.roadCat[roadCat(r)]} · ${fmtTime(r.start)}</span></span>
+      <span><span class="nm">${esc(nm(r.title))}</span><br><span class="pv">${r._d ? esc(nm(r._d)) + " · " : ""}${t.roadCat[roadCat(r)]} · ${fmtTime(r.start)}</span></span>
       <span class="pct">${r.depth != null ? Math.round(r.depth) + " " + t.cm : r.closed ? "✕" : ""}</span>
-    </button>`).join("") : `<div class="empty">${t.noRoadFlood}</div>`;
+    </button>`).join("") : `<div class="empty">${t.noRoadFlood(where())}</div>`;
 }
 
 // Community reports from people using this site
@@ -608,6 +613,8 @@ const fromCommunity = c => ({
 });
 function mergeRoads() {
   roadData = { reports: [...officialReports, ...communityReports.map(fromCommunity)] };
+  tagDistricts();
+  renderDistrictSelect();
   buildRoadMarkers();
 }
 
@@ -621,6 +628,62 @@ async function loadRoads() {
   roadErr = off.status === "rejected" ? off.reason.message : null;
   if (off.status === "rejected" && !officialReports.length && !communityReports.length) return updateRoadView();
   mergeRoads();
+}
+
+// ---- Bangkok districts (เขต) ----
+let DISTRICTS = [], selDistrict = null, districtOutline = null;
+function inRing(x, y, ring) {
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const [xi, yi] = ring[i], [xj, yj] = ring[j];
+    if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+}
+function inDistrict(lat, lng, d) {
+  const [s, w, n, e] = d.bbox;
+  if (lat < s || lat > n || lng < w || lng > e) return false;
+  return d.polys.some(([outer, ...holes]) => inRing(lng, lat, outer) && !holes.some(h => inRing(lng, lat, h)));
+}
+const districtOf = (lat, lng) => DISTRICTS.find(d => inDistrict(lat, lng, d)) || null;
+// A chosen district replaces "what's on screen" as the area the panel summarises
+const inArea = (lat, lng, b) => selDistrict ? inDistrict(lat, lng, selDistrict) : b.contains([lat, lng]);
+const where = () => selDistrict ? T().inDistrict(nm(selDistrict)) : T().inView;
+
+function tagDistricts() {
+  if (roadData) roadData.reports.forEach(r => { r._d = districtOf(r.lat, r.lng); });
+}
+function renderDistrictSelect() {
+  const sel = document.getElementById("district"); if (!sel) return;
+  const t = T(), counts = {};
+  if (roadData) roadData.reports.forEach(r => { if (r._d) counts[r._d.code] = (counts[r._d.code] || 0) + 1; });
+  const cur = selDistrict ? selDistrict.code : "";
+  sel.innerHTML = `<option value="">${t.allDistricts}</option>` + [...DISTRICTS]
+    .sort((a, b) => nm(a).localeCompare(nm(b), lang))
+    .map(d => `<option value="${d.code}">${esc(nm(d))}${counts[d.code] ? ` · ${counts[d.code]} ${lang === "th" ? "จุด" : "flooded"}` : ""}</option>`).join("");
+  sel.value = cur;
+  sel.hidden = !DISTRICTS.length;
+}
+function chooseDistrict(code) {
+  selDistrict = DISTRICTS.find(d => d.code === code) || null;
+  if (districtOutline) { districtOutline.remove(); districtOutline = null; }
+  if (selDistrict) {
+    document.getElementById("province").value = "";
+    applyFilter();
+    districtOutline = map.outline(selDistrict.polys);
+    const [s, w, n, e] = selDistrict.bbox;
+    map.flyToBounds([[s, w], [n, e]], { padding: 30 });
+  }
+  document.getElementById("district").value = selDistrict ? selDistrict.code : "";
+  updateView();
+}
+async function loadDistricts() {
+  try {
+    DISTRICTS = await (await fetch("bangkok-districts.json")).json();
+    tagDistricts();
+    renderDistrictSelect();
+    if (roadData) buildRoadMarkers();
+  } catch (e) { console.warn("Districts unavailable:", e.message); }
 }
 
 // ---- Report flow ----
@@ -740,6 +803,7 @@ document.getElementById("lang").onclick = () => {
   lang = lang === "en" ? "th" : "en";
   try { localStorage.setItem("tww-lang", lang); } catch {}
   renderStatic();
+  renderDistrictSelect();
   if (roadData) buildRoadMarkers();
   map.closePopup();
 };
@@ -768,14 +832,18 @@ document.getElementById("roadList").onclick = e => {
 };
 document.getElementById("places").onclick = e => {
   const p = PLACES.find(x => x.key === e.target.dataset.place); if (!p) return;
-  document.getElementById("province").value = ""; applyFilter();
+  document.getElementById("province").value = "";
+  if (selDistrict) chooseDistrict("");
+  applyFilter();
   p.b ? map.flyToBounds(p.b) : map.flyTo(p.c, p.z);
 };
 document.getElementById("province").onchange = e => {
+  if (selDistrict) chooseDistrict("");
   applyFilter();
   const pts = data.stations.filter(s => s.provinceCode === e.target.value).map(s => [s.lat, s.lng]);
   pts.length ? map.flyToBounds(pts, { padding: 40, maxZoom: 11 }) : map.flyToBounds(PLACES[0].b);
 };
+document.getElementById("district").onchange = e => chooseDistrict(e.target.value);
 document.getElementById("legend").onchange = e => {
   const lv = +e.target.dataset.lv; e.target.checked ? shown.add(lv) : shown.delete(lv); applyFilter();
 };
@@ -823,6 +891,7 @@ async function boot() {
   renderStatic();
   load();
   loadRoads();
+  loadDistricts();
   setInterval(() => { load(); loadRoads(); }, 5 * 60 * 1000);
 }
 boot();

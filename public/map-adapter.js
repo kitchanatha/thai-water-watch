@@ -13,10 +13,14 @@
 //   map.closePopup()
 //   map.on("click" | "moveend" | "zoomend", fn)   click gets {lat,lng}
 //   map.addControl(element)       top-right corner
+//   map.outline(polys)            polys: [[outerRing, ...holes]] with [lng,lat] points -> { remove() }
 //   map.setTraffic(on)            Google only
 
 (function () {
   "use strict";
+
+  const OUTLINE = { color: "#0b6e8a", weight: 3, fill: 0.06 };
+  const OUTLINE_STYLE_L = { color: OUTLINE.color, weight: OUTLINE.weight, fillOpacity: OUTLINE.fill, dashArray: "6 4", interactive: false };
 
   // ---------------- Leaflet / OpenStreetMap ----------------
   function createLeaflet(el, o) {
@@ -65,6 +69,10 @@
         else lm.on(evt, () => fn());
       },
       addControl(elm) { new Ctl(elm, { position: "topright" }).addTo(lm); },
+      outline(polys) {
+        const p = L.polygon(polys.map(poly => poly.map(r => r.map(([x, y]) => [y, x]))), OUTLINE_STYLE_L).addTo(lm);
+        return { remove: () => p.remove() };
+      },
       setTraffic() {},
     };
   }
@@ -183,6 +191,13 @@
         else if (evt === "zoomend") gm.addListener("zoom_changed", () => fn());
       },
       addControl(elm) { elm.style.margin = "10px"; gm.controls[g.ControlPosition.TOP_RIGHT].push(elm); },
+      outline(polys) {
+        const shapes = polys.map(poly => new g.Polygon({
+          map: gm, paths: poly.map(r => r.map(([x, y]) => ({ lat: y, lng: x }))), clickable: false,
+          strokeColor: OUTLINE.color, strokeWeight: OUTLINE.weight, strokeOpacity: 0.9, fillColor: OUTLINE.color, fillOpacity: OUTLINE.fill,
+        }));
+        return { remove: () => shapes.forEach(sh => sh.setMap(null)) };
+      },
       setTraffic(on) { traffic.setMap(on ? gm : null); },
     };
   }

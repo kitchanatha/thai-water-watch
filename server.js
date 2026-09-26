@@ -110,6 +110,10 @@ function slimRoad(raw) {
     .filter((e) => e.type === "6" || e.icon === "flood")
     .map((e) => {
       const text = `${e.title || ""} ${e.description || ""}`;
+      // DOH puts the official status in the title, e.g. "(ผ่านได้)" / "(ผ่านไม่ได้)"; it wins over the description
+      const titleSaysOpen = /\(\s*ผ่านได้\s*\)/.test(e.title || "");
+      const titleSaysClosed = /\(\s*ผ่านไม่ได้\s*\)/.test(e.title || "");
+      const closed = titleSaysClosed || (!titleSaysOpen && RE_CLOSED.test(text));
       return {
         id: e.eid,
         title: { th: (e.title || "").replace(/^น้ำท่วม\s*/, ""), en: (e.title_en || e.title || "").replace(/^(Flood (at )?|น้ำท่วม\s*)/i, "") },
@@ -120,8 +124,8 @@ function slimRoad(raw) {
         stop: bkkTime(e.stop),
         source: sourceOf(e.contributor || ""),
         depth: parseDepth(text),
-        closed: RE_CLOSED.test(text),
-        passable: !RE_CLOSED.test(text) && /ผ่านได้|passable/i.test(text),
+        closed,
+        passable: !closed && (titleSaysOpen || /ผ่านได้|passable/i.test(text)),
         receded: RE_RECEDED.test(text),
         image: (e.images && e.images[0]) || null,
       };
@@ -234,9 +238,10 @@ const server = http.createServer(async (req, res) => {
     res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
     return res.end(html);
   }
-  if (url.pathname === "/map-adapter.js") {
-    res.writeHead(200, { "Content-Type": "text/javascript; charset=utf-8", "Cache-Control": "no-cache" });
-    return fs.createReadStream(path.join(__dirname, "public", "map-adapter.js")).pipe(res);
+  const STATIC = { "/map-adapter.js": "text/javascript", "/bangkok-districts.json": "application/json" };
+  if (STATIC[url.pathname]) {
+    res.writeHead(200, { "Content-Type": STATIC[url.pathname] + "; charset=utf-8", "Cache-Control": "no-cache" });
+    return fs.createReadStream(path.join(__dirname, "public", url.pathname.slice(1))).pipe(res);
   }
   res.writeHead(404);
   res.end("Not found");
