@@ -14,8 +14,10 @@ const BOUNDS = { minLat: 5.3, maxLat: 20.8, minLng: 97.2, maxLng: 105.9 };
 // Depth choices the form offers (cm); "closed" means impassable
 const DEPTHS = { 5: 5, 15: 15, 25: 25, 40: 40 };
 
-const UP_URL = process.env.UPSTASH_REDIS_REST_URL;
-const UP_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
+// Tolerate values pasted with surrounding quotes or spaces (e.g. copied from a .env snippet)
+const envClean = (v) => (v || "").trim().replace(/^(["'])(.*)\1$/, "$2").trim();
+const UP_URL = envClean(process.env.UPSTASH_REDIS_REST_URL);
+const UP_TOKEN = envClean(process.env.UPSTASH_REDIS_REST_TOKEN);
 const FILE = path.join(__dirname, "data", "reports.json");
 
 // ---------- storage ----------
@@ -41,8 +43,8 @@ async function check() {
     return "upstash, connection OK";
   } catch (e) {
     const hints = [];
-    if (/^["']|["']$/.test(UP_URL) || /^["']|["']$/.test(UP_TOKEN)) hints.push("remove the quote marks around the values in Render");
-    if (!/^https:\/\//.test(UP_URL.replace(/^["']/, ""))) hints.push("URL should start with https://");
+    if (!/^https:\/\//.test(UP_URL)) hints.push("URL should start with https://");
+    if (/HTTP 401|WRONGPASS|Unauthorized/i.test(e.message)) hints.push("token is wrong or was reset; paste the current REST token into Render");
     return `upstash, connection FAILED: ${e.message}${hints.length ? " | hint: " + hints.join("; ") : ""}`;
   }
 }
