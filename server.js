@@ -130,9 +130,19 @@ function slimRoad(raw) {
         image: (e.images && e.images[0]) || null,
       };
     })
-    .filter((r) => isFinite(r.lat) && isFinite(r.lng) && (!r.stop || Date.parse(r.stop) > now));
-  return { fetchedAt: new Date().toISOString(), reports };
+    .filter((r) => isFinite(r.lat) && isFinite(r.lng) && (!r.stop || Date.parse(r.stop) > now))
+    // DOH files reports with no real location at its headquarters (Ratchathewi); showing them there would mislead
+    .filter((r) => !(r.source === "doh" && Math.abs(r.lat - DOH_HQ.lat) < 0.0005 && Math.abs(r.lng - DOH_HQ.lng) < 0.0005));
+  // Updates are re-posted as new events at the same spot with the same title: keep only the newest
+  const newest = new Map();
+  for (const r of reports) {
+    const key = `${r.title.th}|${r.lat.toFixed(4)},${r.lng.toFixed(4)}`;
+    const prev = newest.get(key);
+    if (!prev || Date.parse(r.start) > Date.parse(prev.start)) newest.set(key, r);
+  }
+  return { fetchedAt: new Date().toISOString(), reports: [...newest.values()] };
 }
+const DOH_HQ = { lat: 13.76402, lng: 100.53828 };
 
 async function getRoadData() {
   if (roadCache.body && Date.now() - roadCache.at < CACHE_MS) return roadCache.body;
