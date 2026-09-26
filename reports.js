@@ -25,9 +25,26 @@ async function redis(cmd) {
     headers: { Authorization: `Bearer ${UP_TOKEN}`, "Content-Type": "application/json" },
     body: JSON.stringify(cmd),
   });
-  const j = await r.json();
-  if (j.error) throw new Error("Upstash: " + j.error);
+  const text = await r.text();
+  let j;
+  try { j = JSON.parse(text); } catch { throw new Error(`Upstash HTTP ${r.status}: ${text.slice(0, 120)}`); }
+  if (j.error) throw new Error(`Upstash HTTP ${r.status}: ${j.error}`);
   return j.result;
+}
+
+// Connection self-test for /healthz (never includes the token)
+async function check() {
+  if (!(UP_URL && UP_TOKEN)) return "file";
+  try {
+    await redis(["PING"]);
+    await redis(["HLEN", KEY]);
+    return "upstash, connection OK";
+  } catch (e) {
+    const hints = [];
+    if (/^["']|["']$/.test(UP_URL) || /^["']|["']$/.test(UP_TOKEN)) hints.push("remove the quote marks around the values in Render");
+    if (!/^https:\/\//.test(UP_URL.replace(/^["']/, ""))) hints.push("URL should start with https://");
+    return `upstash, connection FAILED: ${e.message}${hints.length ? " | hint: " + hints.join("; ") : ""}`;
+  }
 }
 
 const store = UP_URL && UP_TOKEN
@@ -144,4 +161,4 @@ async function remove(id, body) {
   return { status: 200, body: { ok: true } };
 }
 
-module.exports = { list, create, vote, remove, storeKind: () => store.kind };
+module.exports = { list, create, vote, remove, check, storeKind: () => store.kind };
