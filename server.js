@@ -239,8 +239,10 @@ function snapshotFloods() {
   };
   const LV_CM = { H: 25, M: 15, L: 5 }; // district reports without a stated depth
   const out = [];
+  // Sensor values mean "this deep or more", so BMA's deep level (R, over 15 cm) is treated as very deep (>20 cm)
+  const sensorDepth = (r) => (r.level === "R" ? Math.max(r.maxCm, 25) : r.maxCm);
   s.roads.forEach((r, i) => r.lines.forEach((l) => sample(l).forEach(([lat, lng], j) =>
-    out.push({ id: `s${i}-${j}-${out.length}`, lat, lng, depth: r.maxCm, closed: false, title: { th: `${r.name} (เซ็นเซอร์ กทม.)`, en: `${r.name} (BMA sensor)` } }))));
+    out.push({ id: `s${i}-${j}-${out.length}`, lat, lng, depth: sensorDepth(r), closed: false, title: { th: `${r.name} (เซ็นเซอร์ กทม.)`, en: `${r.name} (BMA sensor)` } }))));
   s.reports.forEach((r, i) => {
     if (!r.geom) return;
     const depth = r.cm ?? LV_CM[r.level];
