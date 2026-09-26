@@ -107,31 +107,54 @@ async function plan({ from, to, vehicle }, floods) {
   const nearEnd = (f) => distM([f.lng, f.lat], [from.lng, from.lat]) < ENDPOINT_M || distM([f.lng, f.lat], [to.lng, to.lat]) < ENDPOINT_M;
   const avoidable = floods.filter((f) => cats.has(f.cat) && !nearEnd(f));
 
-  let route = await directions(from, to, []);
-  const plain = { distance: route.distance, duration: route.duration };
+  // One flooded road/report can be many sampled points; group by its title
+  const key = (f) => (f.title && (f.title.th || f.title.en)) || f.id;
+  const avoidKeys = (coords) => new Set(floodsOnRoute(coords, avoidable).map(key));
+  // How bad a route is for this vehicle: floods it should avoid weigh far more than ones it can drive through
+  const SEV = { 1: 0, 2: 1, 3: 3, 4: 10, 5: 2 };
+  function badness(coords) {
+    const worst = new Map();
+    for (const f of floodsOnRoute(coords, floods)) {
+      if (nearEnd(f)) continue;
+      const w = SEV[f.cat] * (cats.has(f.cat) ? 100 : 1);
+      worst.set(key(f), Math.max(worst.get(key(f)) || 0, w));
+    }
+    return [...worst.values()].reduce((a, b) => a + b, 0);
+  }
+
+  const plainRoute = await directions(from, to, []);
+  const plain = { distance: plainRoute.distance, duration: plainRoute.duration };
+  const candidates = [plainRoute];
+  let route = plainRoute, note = null;
   const avoid = new Map();
-  let note = null;
   for (let round = 0; round < MAX_ROUNDS; round++) {
     const hits = floodsOnRoute(route.coords, avoidable).filter((f) => !avoid.has(f.id));
     if (!hits.length) break;
     hits.forEach((f) => avoid.set(f.id, f));
     try {
       route = await directions(from, to, [...avoid.values()]);
+      candidates.push(route);
     } catch (e) {
-      // e.g. no way around, or avoid areas too spread out for ORS; keep the best route so far
-      hits.forEach((f) => avoid.delete(f.id));
-      note = "partial";
+      // e.g. no way around, or too many/too spread-out avoid areas for ORS
+      console.warn("ORS avoid round failed:", e.message);
       break;
     }
   }
+  // Keep the least-flooded attempt (a later detour can be worse than an earlier one), then the quickest
+  const best = candidates
+    .map((c) => ({ c, bad: badness(c.coords) }))
+    .sort((a, b) => a.bad - b.bad || a.c.duration - b.c.duration)[0].c;
+  const bestKeys = avoidKeys(best.coords);
+  if (bestKeys.size) note = "partial";
 
-  // One warning per flooded road/report (line floods are sampled into many points)
+  // One warning per flooded road/report
   const seen = new Set();
-  const stillOn = floodsOnRoute(route.coords, floods)
-    .filter((f) => { const k = f.title && (f.title.th || f.title.en); if (seen.has(k)) return false; seen.add(k); return true; })
+  const stillOn = floodsOnRoute(best.coords, floods)
+    .filter((f) => { const k = key(f); if (seen.has(k)) return false; seen.add(k); return true; })
     .map((f) => ({ id: f.id, lat: f.lat, lng: f.lng, cat: f.cat, depth: f.depth, title: f.title, mustPass: nearEnd(f) }));
-  // Count avoided roads, not sampled points
-  const avoidedCount = new Set([...avoid.values()].map((f) => (f.title && (f.title.th || f.title.en)) || f.id)).size;
+  // "Avoided" = floods this vehicle should avoid that the normal route passes and this one doesn't
+  const avoidedCount = [...avoidKeys(plainRoute.coords)].filter((k) => !bestKeys.has(k)).length;
+  route = best;
   return {
     status: 200,
     body: {
