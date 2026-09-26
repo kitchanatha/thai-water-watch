@@ -208,7 +208,7 @@ const server = http.createServer(async (req, res) => {
   }
   if (url.pathname === "/healthz") {
     res.writeHead(200, { "Content-Type": "text/plain" });
-    return res.end("ok");
+    return res.end(`ok (reports: ${reports.storeKind()})`);
   }
   if (url.pathname === "/api/roadflood") {
     try {
