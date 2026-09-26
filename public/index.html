@@ -31,6 +31,7 @@
   }
 }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 html, body { height: 100%; margin: 0; }
 body { background: var(--bg); color: var(--ink); font: 14px/1.5 var(--font); display: grid; grid-template-columns: 360px 1fr; }
 button, select, input { font: inherit; color: inherit; }
@@ -121,11 +122,52 @@ main { position: relative; min-height: 0; }
 .depthbar .car { font-size: 12px; color: var(--muted); }
 .big { font: 700 28px/1 var(--mono); }
 
+/* Community reports */
+.road-ic.comm span { border-style: dashed; border-color: #fff; outline: 2px solid var(--accent); outline-offset: 0; }
+.fab { position: absolute; z-index: 600; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%);
+  background: var(--accent); color: #fff; border: 0; border-radius: 999px; padding: 12px 22px; font-weight: 700; font-size: 15px;
+  box-shadow: 0 6px 20px rgb(0 0 0 / .25); cursor: pointer; white-space: nowrap; }
+.fab:hover { filter: brightness(1.08); }
+.sheet { position: absolute; z-index: 700; left: 50%; transform: translateX(-50%); bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  width: min(420px, calc(100% - 32px)); max-height: calc(100% - 32px); overflow-y: auto;
+  background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; box-shadow: 0 10px 30px rgb(0 0 0 / .25); }
+.sheet form, .pickbar { display: grid; gap: 10px; }
+.sheet .row { display: flex; gap: 8px; flex-wrap: wrap; }
+.sheet .btn { padding: 8px 14px; font-size: 14px; }
+.sheet fieldset { border: 0; margin: 0; padding: 0; display: grid; gap: 6px; }
+.sheet legend { font-weight: 600; margin-bottom: 6px; padding: 0; }
+.depths { display: grid; gap: 6px; }
+.depths label { cursor: pointer; }
+.depths input { position: absolute; opacity: 0; pointer-events: none; }
+.depths span { display: grid; grid-template-columns: 14px auto 1fr; gap: 8px; align-items: center; padding: 8px 10px; border: 1.5px solid var(--line); border-radius: 10px; }
+.depths em { font-style: normal; color: var(--muted); font-size: 12.5px; text-align: right; }
+.depths input:checked + span { border-color: var(--accent); background: var(--accent-soft); }
+.depths input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
+.note-in { display: grid; gap: 4px; font-weight: 600; }
+.note-in textarea { font: inherit; font-weight: 400; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); resize: vertical; }
+.hint { margin: 0; color: var(--muted); font-size: 12.5px; }
+.err { margin: 0; color: var(--l5); font-weight: 600; font-size: 13px; }
+#map.picking { cursor: crosshair; }
+/* while choosing a spot, taps go through existing markers to the map */
+#map.picking .leaflet-marker-icon:not(.pick-ic), #map.picking path.leaflet-interactive { pointer-events: none; }
+.pick-ic span { display: block; width: 26px; height: 26px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); background: var(--accent); border: 3px solid #fff; box-shadow: 0 2px 8px rgb(0 0 0 / .4); }
+.toast { position: absolute; z-index: 800; left: 50%; top: 14px; transform: translateX(-50%); background: var(--ink); color: var(--panel); padding: 9px 16px; border-radius: 999px; font-weight: 600; max-width: calc(100% - 32px); }
+.toast.bad { background: var(--l5); color: #fff; }
+.votes { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 10px 0 4px; }
+.votes .vq { width: 100%; font-weight: 600; }
+.votes .del { color: var(--l5); }
+
 .pulse { animation: pulse 1.8s ease-out infinite; transform-origin: center; transform-box: fill-box; }
 @keyframes pulse { 0% { stroke-opacity: .9; stroke-width: 2; } 100% { stroke-opacity: 0; stroke-width: 18; } }
 @media (prefers-reduced-motion: reduce) { .pulse { animation: none; } }
 
 @media (max-width: 760px) {
+  /* keep the map (top 55vh) visible while filling in a report: dock the sheet over the side panel */
+  .sheet { position: fixed; left: 0; right: 0; transform: none; bottom: 0; width: 100%; max-height: 45vh;
+    border-radius: 14px 14px 0 0; padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px)); }
+  .depths { grid-template-columns: 1fr 1fr; }
+  .depths span { grid-template-columns: 12px 1fr; }
+  .depths em { grid-column: 2; text-align: left; }
   body { grid-template-columns: 1fr; grid-template-rows: 55vh 1fr; }
   main { grid-row: 1; }
   aside { grid-row: 2; border-right: 0; border-top: 1px solid var(--line); }
@@ -191,6 +233,44 @@ main { position: relative; min-height: 0; }
 <main>
   <div id="map"></div>
   <div class="status" id="status" data-t="loading"></div>
+
+  <button class="fab" id="reportBtn" type="button" data-t="reportBtn"></button>
+
+  <div class="sheet pickbar" id="pickBar" hidden>
+    <strong data-t="pickTitle"></strong>
+    <div class="row">
+      <button class="btn" type="button" id="pickLoc" data-t="pickLoc"></button>
+      <button class="btn" type="button" id="pickCancel" data-t="cancel"></button>
+    </div>
+  </div>
+
+  <div class="sheet" id="reportForm" hidden>
+    <form id="rf">
+      <strong data-t="rfTitle"></strong>
+      <p class="hint" data-t="rfDrag"></p>
+      <fieldset>
+        <legend data-t="rfDepthQ"></legend>
+        <div class="depths">
+          <label><input type="radio" name="depth" value="5" id="d5"><span><i class="sq" style="background:var(--r1)"></i><b data-t="d5"></b><em data-t="d5s"></em></span></label>
+          <label><input type="radio" name="depth" value="15" id="d15"><span><i class="sq" style="background:var(--r2)"></i><b data-t="d15"></b><em data-t="d15s"></em></span></label>
+          <label><input type="radio" name="depth" value="25" id="d25"><span><i class="sq" style="background:var(--r3)"></i><b data-t="d25"></b><em data-t="d25s"></em></span></label>
+          <label><input type="radio" name="depth" value="40" id="d40"><span><i class="sq" style="background:var(--r4)"></i><b data-t="d40"></b><em data-t="d40s"></em></span></label>
+          <label><input type="radio" name="depth" value="closed" id="dclosed"><span><i class="sq" style="background:var(--r4)"></i><b data-t="dclosed"></b><em data-t="dcloseds"></em></span></label>
+        </div>
+      </fieldset>
+      <label class="note-in"><span data-t="rfNoteQ"></span>
+        <textarea id="rfNote" maxlength="200" rows="2"></textarea>
+      </label>
+      <p class="err" id="rfErr" hidden></p>
+      <p class="hint" data-t="rfPublic"></p>
+      <div class="row">
+        <button class="btn on" type="submit" id="rfSend" data-t="rfSend"></button>
+        <button class="btn" type="button" id="rfCancel" data-t="cancel"></button>
+      </div>
+    </form>
+  </div>
+
+  <div class="toast" id="toast" role="status" hidden></div>
 </main>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -223,7 +303,15 @@ const I18N = {
     roadSumBadHint: (closed, deep) => [closed ? `${closed} impassable or closed` : "", deep ? `${deep} deeper than 20 cm` : ""].filter(Boolean).join(" · ") || "Mostly shallow or depth not reported. Allow extra travel time.",
     roadSumOk: "No flooded roads reported in this view", roadSumOkHint: "Based on live reports from the Department of Highways, BMA and drivers.",
     depthNow: "of water reported", reported: "Reported", until: "Expected until", src: "Source",
-    srcName: { doh: "Department of Highways", itic: "iTIC traffic centre (often citing BMA)", user: "Driver report (unverified)" },
+    srcName: { doh: "Department of Highways", itic: "iTIC traffic centre (often citing BMA)", user: "Driver report (unverified)", community: "Thai Water Watch visitor (unverified)" },
+    reportBtn: "+ Report flooding", pickTitle: "Tap the map where the water is", pickLoc: "Use my location", cancel: "Cancel",
+    rfTitle: "Report flooding here", rfDrag: "Drag the pin to adjust the spot.", rfDepthQ: "How deep is the water?",
+    d5: "Up to ankle", d5s: "≤ 10 cm", d15: "Above ankle", d15s: "10–20 cm", d25: "Up to knee", d25s: "20–30 cm",
+    d40: "Above knee", d40s: "> 30 cm", dclosed: "Cannot pass", dcloseds: "road closed / cars stuck",
+    rfNoteQ: "Note (optional)", rfPublic: "Your report is public and shows for 6 hours. Please don't include personal information.",
+    rfSend: "Send report", rfNeedDepth: "Choose how deep the water is.", rfThanks: "Report sent. Thank you!",
+    stillQ: "Is it still flooded?", voteStill: "Still flooded", voteCleared: "Water is gone", deleteMine: "Delete my report",
+    voteThanks: "Thanks for confirming", deleted: "Report deleted", locErr: "Couldn't get your location. Tap the map instead.",
     passableTag: "Reported passable", closedTag: "Reported impassable / closed",
     cm: "cm", roadErr: "Flooded-road reports unavailable: ", details: "Details",
     roadSource: 'Flooded roads: <a href="https://traffic.longdo.com" target="_blank" rel="noopener">Longdo Traffic / iTIC</a> live event feed, covering the Department of Highways, BMA Drainage Dept and driver reports across Thailand. Depth is read from the report text when given. Advice is a rough guide for drivers, not an official rating.',
@@ -256,7 +344,15 @@ const I18N = {
     roadSumBadHint: (closed, deep) => [closed ? `ผ่านไม่ได้/ปิด ${closed} จุด` : "", deep ? `ลึกเกิน 20 ซม. ${deep} จุด` : ""].filter(Boolean).join(" · ") || "ส่วนใหญ่น้ำตื้นหรือไม่ระบุความลึก เผื่อเวลาเดินทาง",
     roadSumOk: "ไม่มีรายงานน้ำท่วมถนนในบริเวณนี้", roadSumOkHint: "จากรายงานสดของกรมทางหลวง กทม. และผู้ขับขี่",
     depthNow: "ระดับน้ำที่รายงาน", reported: "รายงานเมื่อ", until: "คาดว่าถึง", src: "แหล่งข้อมูล",
-    srcName: { doh: "กรมทางหลวง", itic: "ศูนย์ iTIC (มักอ้างอิง สำนักการระบายน้ำ กทม.)", user: "รายงานจากผู้ขับขี่ (ยังไม่ยืนยัน)" },
+    srcName: { doh: "กรมทางหลวง", itic: "ศูนย์ iTIC (มักอ้างอิง สำนักการระบายน้ำ กทม.)", user: "รายงานจากผู้ขับขี่ (ยังไม่ยืนยัน)", community: "ผู้ใช้ Thai Water Watch (ยังไม่ยืนยัน)" },
+    reportBtn: "+ รายงานน้ำท่วม", pickTitle: "แตะบนแผนที่ตรงจุดที่น้ำท่วม", pickLoc: "ใช้ตำแหน่งของฉัน", cancel: "ยกเลิก",
+    rfTitle: "รายงานน้ำท่วมที่จุดนี้", rfDrag: "ลากหมุดเพื่อปรับตำแหน่งได้", rfDepthQ: "น้ำลึกแค่ไหน?",
+    d5: "ไม่เกินตาตุ่ม", d5s: "≤ 10 ซม.", d15: "เกินตาตุ่ม", d15s: "10–20 ซม.", d25: "ถึงเข่า", d25s: "20–30 ซม.",
+    d40: "เกินเข่า", d40s: "> 30 ซม.", dclosed: "ผ่านไม่ได้", dcloseds: "ปิดถนน / รถติดค้าง",
+    rfNoteQ: "หมายเหตุ (ไม่บังคับ)", rfPublic: "รายงานจะแสดงต่อสาธารณะเป็นเวลา 6 ชั่วโมง กรุณาอย่าใส่ข้อมูลส่วนตัว",
+    rfSend: "ส่งรายงาน", rfNeedDepth: "กรุณาเลือกระดับความลึกของน้ำ", rfThanks: "ส่งรายงานแล้ว ขอบคุณครับ/ค่ะ",
+    stillQ: "ตอนนี้ยังท่วมอยู่ไหม?", voteStill: "ยังท่วมอยู่", voteCleared: "น้ำลดแล้ว", deleteMine: "ลบรายงานของฉัน",
+    voteThanks: "ขอบคุณที่ช่วยยืนยัน", deleted: "ลบรายงานแล้ว", locErr: "หาตำแหน่งของคุณไม่ได้ กรุณาแตะบนแผนที่แทน",
     passableTag: "รายงานว่าผ่านได้", closedTag: "รายงานว่าผ่านไม่ได้ / ปิดถนน",
     cm: "ซม.", roadErr: "โหลดรายงานน้ำท่วมถนนไม่ได้: ", details: "รายละเอียด",
     roadSource: 'น้ำท่วมถนน: ข้อมูลเหตุการณ์สดจาก <a href="https://traffic.longdo.com" target="_blank" rel="noopener">Longdo Traffic / iTIC</a> รวมรายงานจากกรมทางหลวง สำนักการระบายน้ำ กทม. และผู้ขับขี่ทั่วประเทศ ความลึกอ่านจากข้อความรายงาน คำแนะนำเป็นแนวทางคร่าวๆ ไม่ใช่ประกาศทางการ',
@@ -276,8 +372,8 @@ const PLACES = [
   { key: "hkt", en: "Phuket", th: "ภูเก็ต", c: [7.95, 98.34], z: 10 },
 ];
 
-let lang = "en";
-try { lang = localStorage.getItem("tww-lang") || "en"; } catch {}
+let lang = "th";
+try { lang = localStorage.getItem("tww-lang") || "th"; } catch {}
 const T = () => I18N[lang];
 const nm = o => (o && (o[lang] || o.en || o.th)) || "";
 const COLORS = () => { const s = getComputedStyle(document.documentElement); return [0,1,2,3,4,5].map(i => s.getPropertyValue("--l" + i).trim()); };
@@ -420,7 +516,7 @@ function roadIcon(r) {
   const c = roadCat(r), col = RCOL()[c];
   const label = r.closed && r.depth == null ? "✕" : r.depth != null ? `${Math.round(r.depth)}<small>${T().cm}</small>` : "?";
   const w = r.depth != null ? 52 : 26;
-  return L.divIcon({ className: "road-ic wet", html: `<span style="background:${col}">${label}</span>`, iconSize: [w, 22], iconAnchor: [w / 2, 11] });
+  return L.divIcon({ className: "road-ic wet" + (r.community ? " comm" : ""), html: `<span style="background:${col}">${label}</span>`, iconSize: [w, 22], iconAnchor: [w / 2, 11] });
 }
 
 function roadPopup(r) {
@@ -438,6 +534,12 @@ function roadPopup(r) {
       <dt>${t.reported}</dt><dd>${fmtTime(r.start)}</dd>
       <dt>${t.until}</dt><dd>${fmtTime(r.stop)}</dd>
     </dl>
+    ${r.community ? `<div class="votes">
+      <span class="vq">${t.stillQ}</span>
+      <button class="btn" type="button" data-vote="still" data-id="${esc(r.id)}">${t.voteStill} · ${r.still}</button>
+      <button class="btn" type="button" data-vote="cleared" data-id="${esc(r.id)}">${t.voteCleared} · ${r.cleared}</button>
+      ${mine()[r.id] ? `<button class="btn del" type="button" data-del="${esc(r.id)}">${t.deleteMine}</button>` : ""}
+    </div>` : ""}
     ${desc ? `<details><summary>${t.details}</summary><p style="white-space:pre-line;margin:6px 0 0;font-size:12px">${esc(desc)}</p></details>` : ""}
     ${r.image ? `<a href="${esc(r.image)}" target="_blank" rel="noopener"><img src="${esc(r.image)}" alt="" style="margin-top:8px;border-radius:6px;max-height:140px;width:100%;object-fit:cover"></a>` : ""}
     <a class="gmaps" href="https://www.google.com/maps/search/?api=1&query=${gq}" target="_blank" rel="noopener">${t.openGmaps}</a>
@@ -481,18 +583,109 @@ function updateRoadView() {
     </button>`).join("") : `<div class="empty">${t.noRoadFlood}</div>`;
 }
 
+// Community reports from people using this site
+let officialReports = [], communityReports = [];
+function mine() { try { return JSON.parse(localStorage.getItem("tww-mine") || "{}"); } catch { return {}; } }
+function saveMine(o) { try { localStorage.setItem("tww-mine", JSON.stringify(o)); } catch {} }
+const fromCommunity = c => ({
+  ...c, source: "community", community: true,
+  title: { th: c.note || "รายงานจากผู้ใช้", en: c.note || "Report from a visitor" }, desc: {},
+});
+function mergeRoads() {
+  roadData = { reports: [...officialReports, ...communityReports.map(fromCommunity)] };
+  buildRoadMarkers();
+}
+
 async function loadRoads() {
+  const [off, com] = await Promise.allSettled([
+    fetch("/api/roadflood").then(async r => { const j = await r.json(); if (!r.ok) throw new Error(j.error || r.status); return j.reports; }),
+    fetch("/api/reports").then(async r => { const j = await r.json(); if (!r.ok) throw new Error(j.error || r.status); return j.reports; }),
+  ]);
+  if (off.status === "fulfilled") officialReports = off.value;
+  if (com.status === "fulfilled") communityReports = com.value;
+  roadErr = off.status === "rejected" ? off.reason.message : null;
+  if (off.status === "rejected" && !officialReports.length && !communityReports.length) return updateRoadView();
+  mergeRoads();
+}
+
+// ---- Report flow ----
+let picking = false, pickMarker = null;
+const $ = id => document.getElementById(id);
+function toast(msg, bad) {
+  const el = $("toast"); el.textContent = msg; el.className = "toast" + (bad ? " bad" : ""); el.hidden = false;
+  clearTimeout(toast.t); toast.t = setTimeout(() => { el.hidden = true; }, 4000);
+}
+function startReport() {
+  map.closePopup();
+  picking = true;
+  $("pickBar").hidden = false; $("reportBtn").hidden = true;
+  $("map").classList.add("picking");
+}
+function endReport() {
+  picking = false;
+  $("pickBar").hidden = true; $("reportForm").hidden = true; $("reportBtn").hidden = false;
+  $("map").classList.remove("picking");
+  if (pickMarker) { pickMarker.remove(); pickMarker = null; }
+  $("rf").reset(); $("rfErr").hidden = true;
+}
+function placePick(latlng) {
+  if (!pickMarker) {
+    pickMarker = L.marker(latlng, { draggable: true, zIndexOffset: 5000,
+      icon: L.divIcon({ className: "pick-ic", html: "<span></span>", iconSize: [26, 26], iconAnchor: [13, 26] }) }).addTo(map);
+  } else pickMarker.setLatLng(latlng);
+  $("pickBar").hidden = true; $("reportForm").hidden = false;
+  map.panTo(latlng);
+}
+map.on("click", e => { if (picking) placePick(e.latlng); });
+map.on("locationfound", e => { if (picking) placePick(e.latlng); });
+map.on("locationerror", () => toast(T().locErr, true));
+
+async function submitReport(ev) {
+  ev.preventDefault();
+  const t = T(), depth = new FormData($("rf")).get("depth");
+  if (!depth) { $("rfErr").textContent = t.rfNeedDepth; $("rfErr").hidden = false; return; }
+  const ll = pickMarker.getLatLng();
+  $("rfSend").disabled = true;
   try {
-    const r = await fetch("/api/roadflood");
+    const r = await fetch("/api/reports", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ lat: ll.lat, lng: ll.lng, depth, note: $("rfNote").value }) });
     const j = await r.json();
     if (!r.ok) throw new Error(j.error || r.status);
-    roadData = j; roadErr = null;
-    buildRoadMarkers();
+    const m = mine(); m[j.report.id] = j.token; saveMine(m);
+    communityReports.push(j.report);
+    endReport();
+    mergeRoads();
+    toast(t.rfThanks);
+    const mk = roadMarkers.find(x => x.road.id === j.report.id); if (mk) mk.openPopup();
   } catch (e) {
-    roadErr = e.message;
-    updateRoadView();
-  }
+    $("rfErr").textContent = e.message; $("rfErr").hidden = false;
+  } finally { $("rfSend").disabled = false; }
 }
+
+// vote / delete buttons inside community popups
+$("map").addEventListener("click", async e => {
+  const b = e.target.closest("[data-vote],[data-del]"); if (!b) return;
+  const t = T(), id = b.dataset.vote ? b.dataset.id : b.dataset.del;
+  b.disabled = true;
+  try {
+    const del = !!b.dataset.del;
+    const r = await fetch(`/api/reports/${id}${del ? "" : "/vote"}`, {
+      method: del ? "DELETE" : "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(del ? { token: mine()[id] } : { vote: b.dataset.vote }) });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error || r.status);
+    map.closePopup();
+    if (del) {
+      communityReports = communityReports.filter(c => c.id !== id);
+      const m = mine(); delete m[id]; saveMine(m);
+      toast(t.deleted);
+    } else {
+      communityReports = communityReports.map(c => c.id === id ? j.report : c);
+      toast(t.voteThanks);
+    }
+    mergeRoads();
+  } catch (err) { toast(err.message, true); b.disabled = false; }
+});
 
 function renderStatic() {
   const t = T();
@@ -539,6 +732,11 @@ document.getElementById("lang").onclick = () => {
 };
 document.getElementById("refresh").onclick = () => { load(); loadRoads(); };
 document.getElementById("showRoads").onchange = applyFilter;
+$("reportBtn").onclick = startReport;
+$("pickCancel").onclick = endReport;
+$("rfCancel").onclick = endReport;
+$("pickLoc").onclick = () => map.locate({ setView: false, enableHighAccuracy: true });
+$("rf").onsubmit = submitReport;
 document.getElementById("showRivers").onchange = applyFilter;
 document.getElementById("roadList").onclick = e => {
   const b = e.target.closest(".item"); if (!b) return;

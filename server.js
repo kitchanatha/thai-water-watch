@@ -137,8 +137,59 @@ async function getRoadData() {
   return body;
 }
 
+const reports = require("./reports");
+
+function readBody(req, limit = 10 * 1024) {
+  return new Promise((resolve, reject) => {
+    let size = 0;
+    const chunks = [];
+    req.on("data", (c) => {
+      size += c.length;
+      if (size > limit) { reject(new Error("too large")); req.destroy(); }
+      else chunks.push(c);
+    });
+    req.on("end", () => {
+      try { resolve(JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}")); }
+      catch { reject(new Error("bad json")); }
+    });
+    req.on("error", reject);
+  });
+}
+
+// Render sits behind a proxy; the first X-Forwarded-For entry is the visitor
+const clientIp = (req) => String(req.headers["x-forwarded-for"] || req.socket.remoteAddress || "").split(",")[0].trim();
+
+function sendJson(res, status, obj) {
+  res.writeHead(status, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" });
+  res.end(JSON.stringify(obj));
+}
+
+async function handleReports(req, res, pathname) {
+  try {
+    if (pathname === "/api/reports" && req.method === "GET") return sendJson(res, 200, { reports: await reports.list() });
+    if (pathname === "/api/reports" && req.method === "POST") {
+      const out = await reports.create(await readBody(req), clientIp(req));
+      return sendJson(res, out.status, out.body || { error: out.error });
+    }
+    const m = /^\/api\/reports\/([a-f0-9]{12})(\/vote)?$/.exec(pathname);
+    if (m && req.method === "POST" && m[2]) {
+      const out = await reports.vote(m[1], await readBody(req), clientIp(req));
+      return sendJson(res, out.status, out.body || { error: out.error });
+    }
+    if (m && req.method === "DELETE" && !m[2]) {
+      const out = await reports.remove(m[1], await readBody(req));
+      return sendJson(res, out.status, out.body || { error: out.error });
+    }
+    sendJson(res, 404, { error: "Not found" });
+  } catch (e) {
+    console.error("Reports error:", e.message);
+    sendJson(res, e.message === "too large" || e.message === "bad json" ? 400 : 500, { error: "Could not save your report. Please try again." });
+  }
+}
+
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, "http://localhost");
+  if (url.pathname.startsWith("/api/reports")) return handleReports(req, res, url.pathname);
   if (url.pathname === "/api/waterlevel") {
     try {
       const body = await getData();
@@ -183,4 +234,4 @@ const server = http.createServer(async (req, res) => {
   res.end("Not found");
 });
 
-server.listen(PORT, () => console.log(`Thai Water Map running at http://localhost:${PORT}`));
+server.listen(PORT, () => console.log(`Thai Water Map running at http://localhost:${PORT} (reports stored in: ${reports.storeKind()})`));
