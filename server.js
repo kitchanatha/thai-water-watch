@@ -215,7 +215,43 @@ function allowRate(key, limit, windowMs) {
 }
 setInterval(() => buckets.clear(), 60 * 60 * 1000).unref();
 
-// Every flood we know of (agency feed + visitor reports), with a severity category
+// BMA snapshot (sensor readings + district office reports) imported from a community page.
+// It is a one-off snapshot, so it only counts while fresh (sensorTime + hideAfterHours).
+let snapCache = null;
+function snapshotFloods() {
+  try {
+    if (!snapCache) snapCache = JSON.parse(fs.readFileSync(path.join(__dirname, "public", "bkk-snapshot.json"), "utf8"));
+  } catch { return []; }
+  const s = snapCache;
+  if (Date.now() > Date.parse(s.sensorTime) + s.hideAfterHours * 3600e3) return [];
+  // Flooded stretches are lines; sample a point every ~60 m so the router sees the whole stretch
+  const sample = (line) => {
+    const out = [];
+    for (let i = 0; i < line.length; i++) {
+      out.push(line[i]);
+      if (i + 1 < line.length) {
+        const [a, b] = [line[i], line[i + 1]];
+        const m = Math.hypot((b[0] - a[0]) * 111320, (b[1] - a[1]) * 111320 * Math.cos(a[0] * Math.PI / 180));
+        for (let k = 1; k < Math.floor(m / 60); k++) { const t = k / Math.floor(m / 60); out.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]); }
+      }
+    }
+    return out;
+  };
+  const LV_CM = { H: 25, M: 15, L: 5 }; // district reports without a stated depth
+  const out = [];
+  s.roads.forEach((r, i) => r.lines.forEach((l) => sample(l).forEach(([lat, lng], j) =>
+    out.push({ id: `s${i}-${j}-${out.length}`, lat, lng, depth: r.maxCm, closed: false, title: { th: `${r.name} (เซ็นเซอร์ กทม.)`, en: `${r.name} (BMA sensor)` } }))));
+  s.reports.forEach((r, i) => {
+    if (!r.geom) return;
+    const depth = r.cm ?? LV_CM[r.level];
+    const title = { th: `${r.name} (รายงานเขต${r.district})`, en: `${r.name} (${r.district} district report)` };
+    const pts = r.kind === "point" ? [r.geom] : r.geom.flatMap(sample);
+    pts.forEach(([lat, lng], j) => out.push({ id: `d${i}-${j}`, lat, lng, depth, closed: false, title }));
+  });
+  return out;
+}
+
+// Every flood we know of (agency feed + visitor reports + fresh BMA snapshot), with a severity category
 async function allFloods() {
   const [official, community] = await Promise.all([
     getRoadData().then((b) => JSON.parse(b).reports).catch(() => []),
@@ -224,6 +260,7 @@ async function allFloods() {
   return [
     ...official.map((r) => ({ id: "o" + r.id, lat: r.lat, lng: r.lng, depth: r.depth, closed: r.closed, title: r.title })),
     ...community.map((r) => ({ id: "c" + r.id, lat: r.lat, lng: r.lng, depth: r.depth, closed: r.closed, title: { th: r.note || "รายงานจากผู้ใช้", en: r.note || "Visitor report" } })),
+    ...snapshotFloods(),
   ].map((f) => ({ ...f, cat: routing.roadCat(f) }));
 }
 
@@ -304,7 +341,10 @@ const server = http.createServer(async (req, res) => {
     res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
     return res.end(html);
   }
-  const STATIC = { "/map-adapter.js": "text/javascript", "/bangkok-districts.json": "application/json" };
+  const STATIC = {
+    "/map-adapter.js": "text/javascript", "/bangkok-districts.json": "application/json",
+    "/bkk-snapshot.json": "application/json", "/flood-prone.json": "application/json",
+  };
   if (STATIC[url.pathname]) {
     res.writeHead(200, { "Content-Type": STATIC[url.pathname] + "; charset=utf-8", "Cache-Control": "no-cache" });
     return fs.createReadStream(path.join(__dirname, "public", url.pathname.slice(1))).pipe(res);

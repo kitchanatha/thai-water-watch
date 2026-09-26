@@ -71,9 +71,11 @@
       },
       addControl(elm) { new Ctl(elm, { position: "topright" }).addTo(lm); },
       line(pts, st = {}) {
-        const casing = L.polyline(pts, { color: "#fff", weight: (st.weight || 6) + 4, opacity: 0.9, interactive: false }).addTo(lm);
-        const l = L.polyline(pts, { color: st.color || "#0b6e8a", weight: st.weight || 6, opacity: 0.95, dashArray: st.dash ? "8 8" : null, interactive: false }).addTo(lm);
-        return { remove: () => { l.remove(); casing.remove(); } };
+        const w = st.weight || 6;
+        const casing = st.casing === false ? null
+          : L.polyline(pts, { color: "#fff", weight: w + 4, opacity: 0.9 * (st.opacity ?? 1), interactive: false }).addTo(lm);
+        const l = L.polyline(pts, { color: st.color || "#0b6e8a", weight: w, opacity: 0.95 * (st.opacity ?? 1), dashArray: st.dash ? "8 8" : null, interactive: false }).addTo(lm);
+        return { remove: () => { l.remove(); if (casing) casing.remove(); } };
       },
       outline(polys) {
         const p = L.polygon(polys.map(poly => poly.map(r => r.map(([x, y]) => [y, x]))), OUTLINE_STYLE_L).addTo(lm);
@@ -199,9 +201,13 @@
       addControl(elm) { elm.style.margin = "10px"; gm.controls[g.ControlPosition.TOP_RIGHT].push(elm); },
       line(pts, st = {}) {
         const path = pts.map(([y, x]) => ({ lat: y, lng: x }));
-        const casing = new g.Polyline({ map: gm, path, strokeColor: "#fff", strokeWeight: (st.weight || 6) + 4, strokeOpacity: 0.9, clickable: false, zIndex: 10 });
-        const l = new g.Polyline({ map: gm, path, strokeColor: st.color || "#0b6e8a", strokeWeight: st.weight || 6, strokeOpacity: 0.95, clickable: false, zIndex: 11 });
-        return { remove: () => { l.setMap(null); casing.setMap(null); } };
+        const w = st.weight || 6, op = st.opacity ?? 1, z = st.z || 10;
+        const casing = st.casing === false ? null
+          : new g.Polyline({ map: gm, path, strokeColor: "#fff", strokeWeight: w + 4, strokeOpacity: 0.9 * op, clickable: false, zIndex: z });
+        // Google has no dash option: draw dashes as repeated line symbols
+        const dash = st.dash ? { strokeOpacity: 0, icons: [{ icon: { path: "M 0,-1 0,1", strokeOpacity: 0.95 * op, strokeColor: st.color || "#0b6e8a", scale: w / 2 }, offset: "0", repeat: `${w * 3}px` }] } : {};
+        const l = new g.Polyline({ map: gm, path, strokeColor: st.color || "#0b6e8a", strokeWeight: w, strokeOpacity: 0.95 * op, clickable: false, zIndex: z + 1, ...dash });
+        return { remove: () => { l.setMap(null); if (casing) casing.setMap(null); } };
       },
       outline(polys) {
         const shapes = polys.map(poly => new g.Polygon({

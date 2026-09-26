@@ -47,3 +47,12 @@ motorbike > 10 cm or unknown depth; car > 20 cm or unknown; pickup/SUV only > 30
 Floods within 250 m of the start or destination can't be avoided and are shown as warnings.
 "Navigate in Google Maps" opens the route with 3 waypoints so Google follows the same roads.
 Limits: 20 routes and 120 place searches per visitor per 10 minutes.
+
+## BMA snapshot + flood-prone roads
+
+`public/bkk-snapshot.json` holds a one-off import (26 Sep 2569: 56 BMA road-sensor readings at 19:40 and
+135 district office reports at 17:43) from a community-made page
+(https://claude.ai/artifact/N6umcENfSgoY6GMkhVKwZs). It is shown with its timestamp, used by the route
+planner, and hides itself 12 hours after the sensor time. `public/flood-prone.json` keeps the 36 sensor
+road segments as a permanent "flood-prone roads" layer. To refresh from a newer copy of that page, save
+its HTML and run `node tools/convert-snapshot.js <saved.html>`, then update the times in the script.

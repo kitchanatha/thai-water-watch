@@ -125,15 +125,19 @@ async function plan({ from, to, vehicle }, floods) {
     }
   }
 
-  const stillOn = floodsOnRoute(route.coords, floods).map((f) => ({
-    id: f.id, lat: f.lat, lng: f.lng, cat: f.cat, depth: f.depth, title: f.title, mustPass: nearEnd(f),
-  }));
+  // One warning per flooded road/report (line floods are sampled into many points)
+  const seen = new Set();
+  const stillOn = floodsOnRoute(route.coords, floods)
+    .filter((f) => { const k = f.title && (f.title.th || f.title.en); if (seen.has(k)) return false; seen.add(k); return true; })
+    .map((f) => ({ id: f.id, lat: f.lat, lng: f.lng, cat: f.cat, depth: f.depth, title: f.title, mustPass: nearEnd(f) }));
+  // Count avoided roads, not sampled points
+  const avoidedCount = new Set([...avoid.values()].map((f) => (f.title && (f.title.th || f.title.en)) || f.id)).size;
   return {
     status: 200,
     body: {
       coords: route.coords.map(([x, y]) => [Math.round(y * 1e5) / 1e5, Math.round(x * 1e5) / 1e5]), // [lat,lng]
       distance: route.distance, duration: route.duration, plain,
-      avoided: avoid.size, stillOn, note,
+      avoided: avoidedCount, stillOn, note,
       google: googleLink(from, to, route.coords),
     },
   };
