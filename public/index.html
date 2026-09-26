@@ -160,6 +160,12 @@ main { position: relative; min-height: 0; }
 .me span { display: block; width: 100%; height: 100%; border-radius: 50%; background: #0b6e8a; border: 3px solid #fff; box-shadow: 0 0 0 1px rgb(0 0 0 / .3); box-sizing: border-box; }
 .gmk:hover { z-index: 9999 !important; }
 .map-btn { box-shadow: 0 2px 8px rgb(0 0 0 / .2); padding: 7px 12px; font-size: 13px; }
+.map-ctl { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.route-btn { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; }
+.route-btn:hover { color: #fff; filter: brightness(1.08); }
+#routeSec.flash { animation: flash 1.6s ease-out; }
+@keyframes flash { 0% { background: var(--accent-soft); } 100% { background: transparent; } }
+@media (prefers-reduced-motion: reduce) { #routeSec.flash { animation: none; } }
 .traffic-sq { background: linear-gradient(90deg, #1e8e3e 0 33%, #f29900 33% 66%, #d93025 66%); }
 .basemap { display: grid; gap: 6px; margin-top: 6px; font-size: 12.5px; color: var(--muted); }
 .seg { display: flex; gap: 6px; flex-wrap: wrap; }
@@ -387,7 +393,7 @@ const I18N = {
     rfNoteQ: "Note (optional)", rfPublic: "Your report is public and shows for 6 hours. Please don't include personal information.",
     rfSend: "Send report", rfNeedDepth: "Choose how deep the water is.", rfThanks: "Report sent. Thank you!",
     stillQ: "Is it still flooded?", voteStill: "Still flooded", voteCleared: "Water is gone", deleteMine: "Delete my report",
-    routeH: "Plan a route around floods", routeIntro: "Get driving directions that steer around flooded roads reported right now.",
+    routeBtn: "Dry route", routeH: "Plan a route around floods", routeIntro: "Get driving directions that steer around flooded roads reported right now.",
     rtFrom: "From", rtTo: "To", rtMe: "My location", rtOnMap: "Choose on map", rtMyLoc: "My location",
     rtPickFrom: "Tap the map to set the start", rtPickTo: "Tap the map to set the destination", rtMapPoint: "Point on map",
     rtNoPlace: "No places found. Try another name, or choose on the map.",
@@ -444,7 +450,7 @@ const I18N = {
     rfNoteQ: "หมายเหตุ (ไม่บังคับ)", rfPublic: "รายงานจะแสดงต่อสาธารณะเป็นเวลา 6 ชั่วโมง กรุณาอย่าใส่ข้อมูลส่วนตัว",
     rfSend: "ส่งรายงาน", rfNeedDepth: "กรุณาเลือกระดับความลึกของน้ำ", rfThanks: "ส่งรายงานแล้ว ขอบคุณครับ/ค่ะ",
     stillQ: "ตอนนี้ยังท่วมอยู่ไหม?", voteStill: "ยังท่วมอยู่", voteCleared: "น้ำลดแล้ว", deleteMine: "ลบรายงานของฉัน",
-    routeH: "วางแผนเส้นทางเลี่ยงน้ำท่วม", routeIntro: "หาเส้นทางขับรถที่เลี่ยงถนนซึ่งมีรายงานน้ำท่วมอยู่ในขณะนี้",
+    routeBtn: "เส้นทางเลี่ยงน้ำ", routeH: "วางแผนเส้นทางเลี่ยงน้ำท่วม", routeIntro: "หาเส้นทางขับรถที่เลี่ยงถนนซึ่งมีรายงานน้ำท่วมอยู่ในขณะนี้",
     rtFrom: "จาก", rtTo: "ไปที่", rtMe: "ตำแหน่งของฉัน", rtOnMap: "เลือกบนแผนที่", rtMyLoc: "ตำแหน่งของฉัน",
     rtPickFrom: "แตะบนแผนที่เพื่อเลือกจุดเริ่มต้น", rtPickTo: "แตะบนแผนที่เพื่อเลือกปลายทาง", rtMapPoint: "จุดบนแผนที่",
     rtNoPlace: "ไม่พบสถานที่ ลองชื่ออื่น หรือเลือกบนแผนที่",
@@ -844,6 +850,7 @@ function renderStatic() {
   document.querySelectorAll("[data-t]").forEach(el => { el.innerHTML = t[el.dataset.t]; });
   document.getElementById("lang").textContent = lang === "en" ? "ไทย" : "EN";
   const near = document.getElementById("near"); if (near) near.textContent = t.myLoc;
+  const rb = document.getElementById("routeBtn"); if (rb) rb.textContent = t.routeBtn;
   document.getElementById("places").innerHTML = PLACES.map(p => `<button class="btn" type="button" data-place="${p.key}">${p[lang]}</button>`).join("");
   const sel = document.getElementById("province"), cur = sel.value;
   sel.innerHTML = `<option value="">${t.allProvinces}</option>` +
@@ -936,6 +943,23 @@ function wireSearch(inputId, boxId, which) {
   });
   input.addEventListener("keydown", e => { if (e.key === "Escape") box.hidden = true; });
   document.addEventListener("click", e => { if (!box.contains(e.target) && e.target !== input) box.hidden = true; });
+}
+
+// Map button: bring the planner into view and put the cursor where the visitor starts typing
+function openPlanner() {
+  if (picking) endReport();
+  const sec = $("routeSec"), panel = document.querySelector("aside");
+  // The side panel is the scrolling element in both layouts; scroll it directly
+  // (scrollIntoView's smooth scroll gets cancelled by the focus() below in Chrome).
+  const top = panel.scrollTop + sec.getBoundingClientRect().top - panel.getBoundingClientRect().top;
+  const smooth = !matchMedia("(prefers-reduced-motion: reduce)").matches;
+  panel.scrollTo({ top, behavior: smooth ? "smooth" : "auto" });
+  sec.classList.remove("flash"); void sec.offsetWidth; sec.classList.add("flash");
+  setTimeout(() => {
+    // If smooth scrolling didn't happen (some browsers/webviews skip it), jump there
+    if (Math.abs(panel.scrollTop - Math.min(top, panel.scrollHeight - panel.clientHeight)) > 4) panel.scrollTop = top;
+    $(rt.from ? "rtTo" : "rtFrom").focus({ preventScroll: true });
+  }, smooth ? 700 : 0);
 }
 
 function clearRoute() {
@@ -1098,11 +1122,20 @@ async function boot() {
     map.setTraffic(traffic);
   }
 
-  // "Near me" button on the map
+  // Buttons on the map (top right): route planner (when enabled) and "Near me"
+  const ctl = document.createElement("div");
+  ctl.className = "map-ctl";
+  if (CONFIG.routing) {
+    const rb = document.createElement("button");
+    rb.type = "button"; rb.id = "routeBtn"; rb.className = "btn map-btn route-btn"; rb.textContent = T().routeBtn;
+    rb.onclick = e => { e.stopPropagation(); openPlanner(); };
+    ctl.appendChild(rb);
+  }
   const near = document.createElement("button");
   near.type = "button"; near.id = "near"; near.className = "btn map-btn"; near.textContent = T().myLoc;
   near.onclick = e => { e.stopPropagation(); locate(false); };
-  map.addControl(near);
+  ctl.appendChild(near);
+  map.addControl(ctl);
 
   map.on("click", ll => { if (routePick) finishRoutePick(ll); else if (picking) placePick(ll); });
   $("routeSec").hidden = !CONFIG.routing;
