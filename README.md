@@ -30,3 +30,10 @@ Limits: 5 reports per visitor per 30 minutes, locations inside Thailand only, no
 Storage: set `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` (free Upstash Redis database)
 so reports survive restarts. Without them, reports are kept in `data/reports.json`, which Render's
 free plan wipes whenever the service sleeps.
+
+## Google Maps + live traffic (optional)
+
+Set `GOOGLE_MAPS_API_KEY` (a browser key with the Maps JavaScript API enabled, restricted to your
+site's address) and the site uses Google Maps with a live traffic layer. Visitors can switch between
+Google Maps and OpenStreetMap in the side panel. If Google rejects the key or fails to load, the page
+falls back to OpenStreetMap automatically.

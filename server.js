@@ -227,8 +227,16 @@ const server = http.createServer(async (req, res) => {
     return;
   }
   if (url.pathname === "/" || url.pathname === "/index.html") {
-    res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-    return fs.createReadStream(path.join(__dirname, "public", "index.html")).pipe(res);
+    // The Google Maps browser key is public by design (restrict it to this site in Google Cloud).
+    const config = { googleKey: (process.env.GOOGLE_MAPS_API_KEY || "").trim().replace(/^(["'])(.*)\1$/, "$2") || null };
+    const html = fs.readFileSync(path.join(__dirname, "public", "index.html"), "utf8")
+      .replace("{/*CONFIG*/}", JSON.stringify(config).replace(/</g, "\\u003c"));
+    res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
+    return res.end(html);
+  }
+  if (url.pathname === "/map-adapter.js") {
+    res.writeHead(200, { "Content-Type": "text/javascript; charset=utf-8", "Cache-Control": "no-cache" });
+    return fs.createReadStream(path.join(__dirname, "public", "map-adapter.js")).pipe(res);
   }
   res.writeHead(404);
   res.end("Not found");

@@ -149,7 +149,23 @@ main { position: relative; min-height: 0; }
 .err { margin: 0; color: var(--l5); font-weight: 600; font-size: 13px; }
 #map.picking { cursor: crosshair; }
 /* while choosing a spot, taps go through existing markers to the map */
-#map.picking .leaflet-marker-icon:not(.pick-ic), #map.picking path.leaflet-interactive { pointer-events: none; }
+#map.picking .mk:not(.pick-ic) { pointer-events: none; }
+
+/* River stations (same look on both maps) */
+.st span { display: block; width: 100%; height: 100%; border-radius: 50%; border: 1.5px solid #fff; box-shadow: 0 0 0 1px rgb(0 0 0 / .18); box-sizing: border-box; }
+.st0 span { opacity: .6; }
+.st5 span { border: 2px solid #fff; animation: ring 1.8s ease-out infinite; }
+@keyframes ring { 0% { box-shadow: 0 0 0 0 rgb(224 32 32 / .6); } 100% { box-shadow: 0 0 0 12px rgb(224 32 32 / 0); } }
+@media (prefers-reduced-motion: reduce) { .st5 span { animation: none; } }
+.me span { display: block; width: 100%; height: 100%; border-radius: 50%; background: #0b6e8a; border: 3px solid #fff; box-shadow: 0 0 0 1px rgb(0 0 0 / .3); box-sizing: border-box; }
+.gmk:hover { z-index: 9999 !important; }
+.map-btn { box-shadow: 0 2px 8px rgb(0 0 0 / .2); padding: 7px 12px; font-size: 13px; }
+.traffic-sq { background: linear-gradient(90deg, #1e8e3e 0 33%, #f29900 33% 66%, #d93025 66%); }
+.basemap { display: grid; gap: 6px; margin-top: 6px; font-size: 12.5px; color: var(--muted); }
+.seg { display: flex; gap: 6px; flex-wrap: wrap; }
+/* Google popups are always white, so pin their colours to the light palette */
+.gpop { --panel: #fff; --ink: #14242b; --muted: #5b6d74; --line: #dbe3e6; --accent: #0b6e8a; --accent-soft: #e2f0f4; --l1: #db802b; --l5: #e02020;
+  color: #14242b; font: 13px/1.45 var(--font); min-width: 230px; }
 .pick-ic span { display: block; width: 26px; height: 26px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); background: var(--accent); border: 3px solid #fff; box-shadow: 0 2px 8px rgb(0 0 0 / .4); }
 .toast { position: absolute; z-index: 800; left: 50%; top: 14px; transform: translateX(-50%); background: var(--ink); color: var(--panel); padding: 9px 16px; border-radius: 999px; font-weight: 600; max-width: calc(100% - 32px); }
 .toast.bad { background: var(--l5); color: #fff; }
@@ -201,6 +217,14 @@ main { position: relative; min-height: 0; }
     <div class="layers">
       <label><input type="checkbox" id="showRoads" checked><span class="sq" style="background:var(--r4)"></span><span data-t="layerRoads"></span><span class="count" id="roadCount"></span></label>
       <label><input type="checkbox" id="showRivers" checked><span class="dot" style="background:var(--l4)"></span><span data-t="layerRivers"></span><span class="count" id="riverCount"></span></label>
+      <label id="trafficRow" hidden><input type="checkbox" id="showTraffic" checked><span class="sq traffic-sq"></span><span data-t="layerTraffic"></span></label>
+    </div>
+    <div class="basemap" id="baseRow" hidden>
+      <span data-t="baseMap"></span>
+      <div class="seg">
+        <button type="button" class="btn" data-base="google">Google Maps</button>
+        <button type="button" class="btn" data-base="osm">OpenStreetMap</button>
+      </div>
     </div>
   </section>
 
@@ -273,7 +297,9 @@ main { position: relative; min-height: 0; }
   <div class="toast" id="toast" role="status" hidden></div>
 </main>
 
+<script>window.TWW_CONFIG = {/*CONFIG*/};</script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="map-adapter.js"></script>
 <script>
 const I18N = {
   en: {
@@ -305,12 +331,14 @@ const I18N = {
     depthNow: "of water reported", reported: "Reported", until: "Expected until", src: "Source",
     srcName: { doh: "Department of Highways", itic: "iTIC traffic centre (often citing BMA)", user: "Driver report (unverified)", community: "Thai Water Watch visitor (unverified)" },
     reportBtn: "+ Report flooding", pickTitle: "Tap the map where the water is", pickLoc: "Use my location", cancel: "Cancel",
-    rfTitle: "Report flooding here", rfDrag: "Drag the pin to adjust the spot.", rfDepthQ: "How deep is the water?",
+    rfTitle: "Report flooding here", rfDrag: "Tap the map again (or drag the pin) to move it.", rfDepthQ: "How deep is the water?",
     d5: "Up to ankle", d5s: "≤ 10 cm", d15: "Above ankle", d15s: "10–20 cm", d25: "Up to knee", d25s: "20–30 cm",
     d40: "Above knee", d40s: "> 30 cm", dclosed: "Cannot pass", dcloseds: "road closed / cars stuck",
     rfNoteQ: "Note (optional)", rfPublic: "Your report is public and shows for 6 hours. Please don't include personal information.",
     rfSend: "Send report", rfNeedDepth: "Choose how deep the water is.", rfThanks: "Report sent. Thank you!",
     stillQ: "Is it still flooded?", voteStill: "Still flooded", voteCleared: "Water is gone", deleteMine: "Delete my report",
+    layerTraffic: "Live traffic (Google)", baseMap: "Base map",
+    gFallback: "Google Maps is unavailable right now, showing OpenStreetMap instead.",
     voteThanks: "Thanks for confirming", deleted: "Report deleted", locErr: "Couldn't get your location. Tap the map instead.",
     passableTag: "Reported passable", closedTag: "Reported impassable / closed",
     cm: "cm", roadErr: "Flooded-road reports unavailable: ", details: "Details",
@@ -346,12 +374,14 @@ const I18N = {
     depthNow: "ระดับน้ำที่รายงาน", reported: "รายงานเมื่อ", until: "คาดว่าถึง", src: "แหล่งข้อมูล",
     srcName: { doh: "กรมทางหลวง", itic: "ศูนย์ iTIC (มักอ้างอิง สำนักการระบายน้ำ กทม.)", user: "รายงานจากผู้ขับขี่ (ยังไม่ยืนยัน)", community: "ผู้ใช้ Thai Water Watch (ยังไม่ยืนยัน)" },
     reportBtn: "+ รายงานน้ำท่วม", pickTitle: "แตะบนแผนที่ตรงจุดที่น้ำท่วม", pickLoc: "ใช้ตำแหน่งของฉัน", cancel: "ยกเลิก",
-    rfTitle: "รายงานน้ำท่วมที่จุดนี้", rfDrag: "ลากหมุดเพื่อปรับตำแหน่งได้", rfDepthQ: "น้ำลึกแค่ไหน?",
+    rfTitle: "รายงานน้ำท่วมที่จุดนี้", rfDrag: "แตะบนแผนที่อีกครั้ง (หรือลากหมุด) เพื่อย้ายตำแหน่ง", rfDepthQ: "น้ำลึกแค่ไหน?",
     d5: "ไม่เกินตาตุ่ม", d5s: "≤ 10 ซม.", d15: "เกินตาตุ่ม", d15s: "10–20 ซม.", d25: "ถึงเข่า", d25s: "20–30 ซม.",
     d40: "เกินเข่า", d40s: "> 30 ซม.", dclosed: "ผ่านไม่ได้", dcloseds: "ปิดถนน / รถติดค้าง",
     rfNoteQ: "หมายเหตุ (ไม่บังคับ)", rfPublic: "รายงานจะแสดงต่อสาธารณะเป็นเวลา 6 ชั่วโมง กรุณาอย่าใส่ข้อมูลส่วนตัว",
     rfSend: "ส่งรายงาน", rfNeedDepth: "กรุณาเลือกระดับความลึกของน้ำ", rfThanks: "ส่งรายงานแล้ว ขอบคุณครับ/ค่ะ",
     stillQ: "ตอนนี้ยังท่วมอยู่ไหม?", voteStill: "ยังท่วมอยู่", voteCleared: "น้ำลดแล้ว", deleteMine: "ลบรายงานของฉัน",
+    layerTraffic: "สภาพการจราจร (Google)", baseMap: "แผนที่พื้นฐาน",
+    gFallback: "ใช้ Google Maps ไม่ได้ในขณะนี้ จึงแสดงแผนที่ OpenStreetMap แทน",
     voteThanks: "ขอบคุณที่ช่วยยืนยัน", deleted: "ลบรายงานแล้ว", locErr: "หาตำแหน่งของคุณไม่ได้ กรุณาแตะบนแผนที่แทน",
     passableTag: "รายงานว่าผ่านได้", closedTag: "รายงานว่าผ่านไม่ได้ / ปิดถนน",
     cm: "ซม.", roadErr: "โหลดรายงานน้ำท่วมถนนไม่ได้: ", details: "รายละเอียด",
@@ -382,28 +412,23 @@ let roadData = null, roadMarkers = [], roadErr = null;
 let data = null, markers = [], shown = new Set([1,2,3,4,5,0]), locMarker = null;
 
 const dark = matchMedia("(prefers-color-scheme: dark)").matches;
-const map = L.map("map", { zoomControl: true, preferCanvas: false }).setView(PLACES[1].c, PLACES[1].z);
-L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-  maxZoom: 19,
-  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-  className: dark ? "tiles-dark" : "",
-}).addTo(map);
+const CONFIG = window.TWW_CONFIG || {};
+let basePref = "google";
+try { basePref = localStorage.getItem("tww-base") || "google"; } catch {}
+let map; // created in boot() by createMap() from map-adapter.js
 
-// "Near me" control (works on localhost / https)
-const LocCtl = L.Control.extend({
-  onAdd() {
-    const b = L.DomUtil.create("button", "btn");
-    b.type = "button"; b.id = "near"; b.textContent = T().myLoc;
-    b.style.boxShadow = "0 2px 8px rgb(0 0 0 / .15)";
-    L.DomEvent.on(b, "click", e => { L.DomEvent.stop(e); map.locate({ setView: true, maxZoom: 11 }); });
-    return b;
-  },
-});
-new LocCtl({ position: "topright" }).addTo(map);
-map.on("locationfound", e => {
-  if (locMarker) locMarker.remove();
-  locMarker = L.circleMarker(e.latlng, { radius: 7, color: "#fff", weight: 3, fillColor: "#0b6e8a", fillOpacity: 1 }).addTo(map);
-});
+// Show the visitor's position; for a report, drop the pin there instead of flying
+function locate(forPick) {
+  if (!navigator.geolocation) return toast(T().locErr, true);
+  navigator.geolocation.getCurrentPosition(p => {
+    const ll = { lat: p.coords.latitude, lng: p.coords.longitude };
+    if (locMarker) locMarker.remove();
+    locMarker = map.marker({ ...ll, cls: "me", html: "<span></span>", w: 18, h: 18, z: 4000 });
+    locMarker.show();
+    if (forPick && picking) placePick(ll);
+    else map.flyTo([ll.lat, ll.lng], 13);
+  }, () => toast(T().locErr, true), { enableHighAccuracy: true, timeout: 10000 });
+}
 
 function levelOf(s) { return s.level >= 1 && s.level <= 5 ? s.level : 0; }
 function ageHours(s) { return s.time ? (Date.now() - new Date(s.time.replace(" ", "T") + ":00+07:00")) / 36e5 : Infinity; }
@@ -439,33 +464,25 @@ function buildMarkers() {
   const c = COLORS();
   // draw low levels first so overflowing stations sit on top
   markers = [...data.stations].sort((a, b) => levelOf(a) - levelOf(b)).map(s => {
-    const lv = levelOf(s);
-    const m = L.circleMarker([s.lat, s.lng], {
-      radius: lv === 5 ? 9 : lv === 4 ? 7 : 5.5,
-      color: lv === 5 ? c[5] : "#ffffff", weight: lv === 5 ? 2 : 1.2,
-      fillColor: c[lv], fillOpacity: lv === 0 ? 0.6 : 0.92,
-      className: lv === 5 ? "pulse" : "",
+    const lv = levelOf(s), size = lv === 5 ? 18 : lv === 4 ? 14 : 11;
+    return map.marker({
+      lat: s.lat, lng: s.lng, w: size, h: size, z: lv * 10, data: s,
+      cls: `st st${lv}`, html: `<span style="background:${c[lv]}"></span>`,
+      title: `${nm(s.name)} · ${s.pct == null ? "–" : fmt(s.pct, 0) + "%"}`,
+      popup: () => popupHtml(s),
     });
-    m.station = s;
-    m.bindPopup(() => popupHtml(s), { maxWidth: 300 });
-    m.bindTooltip(() => `${nm(s.name)} · ${s.pct == null ? "–" : fmt(s.pct, 0) + "%"}`, { direction: "top", offset: [0, -6] });
-    return m;
   });
   applyFilter();
 }
 
 function applyFilter() {
   const prov = document.getElementById("province").value;
+  const rivers = document.getElementById("showRivers").checked, roads = document.getElementById("showRoads").checked;
   markers.forEach(m => {
-    const s = m.station, ok = document.getElementById("showRivers").checked && shown.has(levelOf(s)) && (!prov || s.provinceCode === prov);
-    if (ok && !map.hasLayer(m)) m.addTo(map);
-    if (!ok && map.hasLayer(m)) m.remove();
+    const s = m.data;
+    rivers && shown.has(levelOf(s)) && (!prov || s.provinceCode === prov) ? m.show() : m.hide();
   });
-  roadMarkers.forEach(m => {
-    const ok = document.getElementById("showRoads").checked;
-    if (ok && !map.hasLayer(m)) m.addTo(map);
-    if (!ok && map.hasLayer(m)) m.remove();
-  });
+  roadMarkers.forEach(m => roads ? m.show() : m.hide());
   updateView();
 }
 
@@ -516,7 +533,7 @@ function roadIcon(r) {
   const c = roadCat(r), col = RCOL()[c];
   const label = r.closed && r.depth == null ? "✕" : r.depth != null ? `${Math.round(r.depth)}<small>${T().cm}</small>` : "?";
   const w = r.depth != null ? 52 : 26;
-  return L.divIcon({ className: "road-ic wet" + (r.community ? " comm" : ""), html: `<span style="background:${col}">${label}</span>`, iconSize: [w, 22], iconAnchor: [w / 2, 11] });
+  return { cls: "road-ic wet" + (r.community ? " comm" : ""), html: `<span style="background:${col}">${label}</span>`, w, h: 22 };
 }
 
 function roadPopup(r) {
@@ -548,12 +565,10 @@ function roadPopup(r) {
 
 function buildRoadMarkers() {
   roadMarkers.forEach(m => m.remove());
-  roadMarkers = roadData.reports.map(r => {
-    const m = L.marker([r.lat, r.lng], { icon: roadIcon(r), zIndexOffset: 1000 + SEV[roadCat(r)] * 100, riseOnHover: true, title: nm(r.title) });
-    m.road = r;
-    m.bindPopup(() => roadPopup(r), { maxWidth: 300 });
-    return m;
-  });
+  roadMarkers = roadData.reports.map(r => map.marker({
+    lat: r.lat, lng: r.lng, ...roadIcon(r), z: 1000 + SEV[roadCat(r)] * 100, data: r,
+    title: nm(r.title), popup: () => roadPopup(r),
+  }));
   applyFilter();
 }
 
@@ -630,15 +645,12 @@ function endReport() {
 }
 function placePick(latlng) {
   if (!pickMarker) {
-    pickMarker = L.marker(latlng, { draggable: true, zIndexOffset: 5000,
-      icon: L.divIcon({ className: "pick-ic", html: "<span></span>", iconSize: [26, 26], iconAnchor: [13, 26] }) }).addTo(map);
+    pickMarker = map.marker({ ...latlng, cls: "pick-ic", html: "<span></span>", w: 26, h: 26, ax: 13, ay: 26, z: 5000, draggable: true });
+    pickMarker.show();
   } else pickMarker.setLatLng(latlng);
   $("pickBar").hidden = true; $("reportForm").hidden = false;
   map.panTo(latlng);
 }
-map.on("click", e => { if (picking) placePick(e.latlng); });
-map.on("locationfound", e => { if (picking) placePick(e.latlng); });
-map.on("locationerror", () => toast(T().locErr, true));
 
 async function submitReport(ev) {
   ev.preventDefault();
@@ -656,14 +668,15 @@ async function submitReport(ev) {
     endReport();
     mergeRoads();
     toast(t.rfThanks);
-    const mk = roadMarkers.find(x => x.road.id === j.report.id); if (mk) mk.openPopup();
+    const mk = roadMarkers.find(x => x.data.id === j.report.id); if (mk) mk.open();
   } catch (e) {
     $("rfErr").textContent = e.message; $("rfErr").hidden = false;
   } finally { $("rfSend").disabled = false; }
 }
 
 // vote / delete buttons inside community popups
-$("map").addEventListener("click", async e => {
+// (listening on document: Google Maps draws popups outside the normal click path)
+document.addEventListener("click", async e => {
   const b = e.target.closest("[data-vote],[data-del]"); if (!b) return;
   const t = T(), id = b.dataset.vote ? b.dataset.id : b.dataset.del;
   b.disabled = true;
@@ -722,7 +735,7 @@ async function load() {
   }
 }
 
-// events
+// events (panel controls; nothing here touches the map until it is called)
 document.getElementById("lang").onclick = () => {
   lang = lang === "en" ? "th" : "en";
   try { localStorage.setItem("tww-lang", lang); } catch {}
@@ -735,17 +748,24 @@ document.getElementById("showRoads").onchange = applyFilter;
 $("reportBtn").onclick = startReport;
 $("pickCancel").onclick = endReport;
 $("rfCancel").onclick = endReport;
-$("pickLoc").onclick = () => map.locate({ setView: false, enableHighAccuracy: true });
+$("pickLoc").onclick = () => locate(true);
 $("rf").onsubmit = submitReport;
 document.getElementById("showRivers").onchange = applyFilter;
+$("showTraffic").onchange = e => {
+  map.setTraffic(e.target.checked);
+  try { localStorage.setItem("tww-traffic", e.target.checked ? "1" : "0"); } catch {}
+};
+$("baseRow").onclick = e => {
+  const b = e.target.closest("[data-base]"); if (!b || b.dataset.base === map.kind) return;
+  try { localStorage.setItem("tww-base", b.dataset.base); sessionStorage.removeItem("tww-gfail"); } catch {}
+  location.reload();
+};
 document.getElementById("roadList").onclick = e => {
   const b = e.target.closest(".item"); if (!b) return;
-  const m = roadMarkers.find(m => String(m.road.id) === b.dataset.road); if (!m) return;
-  map.flyTo(m.getLatLng(), 15); map.once("moveend", () => m.openPopup());
+  const m = roadMarkers.find(m => String(m.data.id) === b.dataset.road); if (!m) return;
+  const ll = m.getLatLng();
+  map.flyTo([ll.lat, ll.lng], 15, () => m.open());
 };
-// shrink road depth labels to plain squares when zoomed out
-const setFar = () => document.getElementById("map").classList.toggle("far", map.getZoom() < 11);
-map.on("zoomend", setFar); setFar();
 document.getElementById("places").onclick = e => {
   const p = PLACES.find(x => x.key === e.target.dataset.place); if (!p) return;
   document.getElementById("province").value = ""; applyFilter();
@@ -754,23 +774,58 @@ document.getElementById("places").onclick = e => {
 document.getElementById("province").onchange = e => {
   applyFilter();
   const pts = data.stations.filter(s => s.provinceCode === e.target.value).map(s => [s.lat, s.lng]);
-  pts.length ? map.flyToBounds(pts, { padding: [40, 40], maxZoom: 11 }) : map.flyToBounds(PLACES[0].b);
+  pts.length ? map.flyToBounds(pts, { padding: 40, maxZoom: 11 }) : map.flyToBounds(PLACES[0].b);
 };
 document.getElementById("legend").onchange = e => {
   const lv = +e.target.dataset.lv; e.target.checked ? shown.add(lv) : shown.delete(lv); applyFilter();
 };
 document.getElementById("list").onclick = e => {
   const b = e.target.closest(".item"); if (!b) return;
-  const m = markers.find(m => String(m.station.id) === b.dataset.id); if (!m) return;
-  map.flyTo(m.getLatLng(), 12); map.once("moveend", () => m.openPopup());
+  const m = markers.find(m => String(m.data.id) === b.dataset.id); if (!m) return;
+  const ll = m.getLatLng();
+  map.flyTo([ll.lat, ll.lng], 12, () => m.open());
 };
-map.on("moveend", updateView);
-setInterval(() => { load(); loadRoads(); }, 5 * 60 * 1000);
 
-renderStatic();
-load();
-loadRoads();
-addEventListener("load", () => { map.invalidateSize(); map.setView(PLACES[1].c, PLACES[1].z); });
+async function boot() {
+  renderStatic();
+  const wantGoogle = CONFIG.googleKey && basePref !== "osm";
+  let gfailed = false;
+  try { gfailed = sessionStorage.getItem("tww-gfail") === "1"; } catch {}
+  map = await createMap($("map"), {
+    center: PLACES[1].c, zoom: PLACES[1].z, dark, language: lang,
+    googleKey: wantGoogle ? CONFIG.googleKey : null,
+  });
+  if (wantGoogle && map.kind !== "google") toast(T().gFallback, true);
+
+  // Base-map switch appears only when a Google key is configured
+  $("baseRow").hidden = !CONFIG.googleKey;
+  $("baseRow").querySelectorAll("[data-base]").forEach(b => b.classList.toggle("on", b.dataset.base === map.kind));
+  if (map.kind === "google") {
+    $("trafficRow").hidden = false;
+    let traffic = true;
+    try { traffic = localStorage.getItem("tww-traffic") !== "0"; } catch {}
+    $("showTraffic").checked = traffic;
+    map.setTraffic(traffic);
+  }
+
+  // "Near me" button on the map
+  const near = document.createElement("button");
+  near.type = "button"; near.id = "near"; near.className = "btn map-btn"; near.textContent = T().myLoc;
+  near.onclick = e => { e.stopPropagation(); locate(false); };
+  map.addControl(near);
+
+  map.on("click", ll => { if (picking) placePick(ll); });
+  map.on("moveend", updateView);
+  // shrink road depth labels to plain squares when zoomed out
+  const setFar = () => $("map").classList.toggle("far", map.getZoom() < 11);
+  map.on("zoomend", setFar); setFar();
+
+  renderStatic();
+  load();
+  loadRoads();
+  setInterval(() => { load(); loadRoads(); }, 5 * 60 * 1000);
+}
+boot();
 </script>
 </body>
 </html>
