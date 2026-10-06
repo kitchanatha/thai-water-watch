@@ -163,6 +163,7 @@ main { position: relative; min-height: 0; }
 .map-ctl { position: absolute; z-index: 650; top: 10px; right: 10px; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
 .route-btn { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; }
 .route-btn:hover { color: #fff; filter: brightness(1.08); }
+.map-btn.tgl[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); font-weight: 600; }
 #routeSec.flash { animation: flash 1.6s ease-out; }
 @keyframes flash { 0% { background: var(--accent-soft); } 100% { background: transparent; } }
 @media (prefers-reduced-motion: reduce) { #routeSec.flash { animation: none; } }
@@ -380,8 +381,8 @@ details.gov-block summary { cursor: pointer; }
       <label id="proneRow" hidden><input type="checkbox" id="showProne"><span class="sq prone-sq"></span><span data-t="layerProne"></span><span class="count" id="proneCount"></span></label>
       <label id="rowCams" hidden><input type="checkbox" id="showCams" checked><span class="sq cam-sq"></span><span data-t="layerCams"></span><span class="count" id="countCams"></span></label>
       <label id="rowBmaCams" hidden><input type="checkbox" id="showBmaCams" checked><span class="sq cam-sq bma"></span><span><span data-t="layerBmaCams"></span><br><small class="hint" data-t="camZoomHint"></small></span><span class="count" id="countBmaCams"></span></label>
-      <label id="rowPtyCams" hidden><input type="checkbox" id="showPtyCams" checked><span class="sq cam-sq pty"></span><span data-t="layerPtyCams"></span><span class="count" id="countPtyCams"></span></label>
-      <label id="rowRain" hidden><input type="checkbox" id="showRain" checked><span class="sq" style="background:#1f4fbf;border-radius:50%"></span><span data-t="layerRain"></span><span class="count" id="rainCount"></span></label>
+      <label id="rowPtyCams" hidden><input type="checkbox" id="showPtyCams"><span class="sq cam-sq pty"></span><span data-t="layerPtyCams"></span><span class="count" id="countPtyCams"></span></label>
+      <label id="rowRain" hidden><input type="checkbox" id="showRain"><span class="sq" style="background:#1f4fbf;border-radius:50%"></span><span data-t="layerRain"></span><span class="count" id="rainCount"></span></label>
       <label id="rowRadar"><input type="checkbox" id="showRadarOverlay" checked><span class="sq rv-sq"></span><span data-t="layerRadar"></span></label>
       <label id="rowDams" hidden><input type="checkbox" id="showDams" checked><span class="sq" style="background:#1f4fe0"></span><span data-t="layerDams"></span></label>
       <label id="rowTraffy" hidden><input type="checkbox" id="showTraffy" checked><span class="sq tf-sq"></span><span data-t="layerTraffy"></span><span class="count" id="traffyCount"></span></label>
@@ -558,6 +559,7 @@ const I18N = {
     camSlow: "The video is taking a while. The camera may be offline.", camNoSupport: "This browser can't play the live video.",
     camPaused: "Paused after 90 seconds to save mobile data (these streams use about 25 MB a minute).", camResume: "Keep watching", camMore: "More on iTIC ↗",
     camOrg: { doh: "Department of Highways camera · via iTIC", itic: "iTIC Foundation camera", bma: "BMA Traffic and Transport Dept camera", pty: "Pattaya City camera" },
+    tglRain: "Rain 24 h", tglPty: "Pattaya cameras", ptyShown: "Showing Pattaya City cameras. Tap one to watch on Pattaya's site.",
     layerRadar: "Rain radar over the map (live)", rvTitle: "Rain radar", rvLight: "Light", rvHeavy: "Heavy",
     rvAgo: m => m <= 5 ? "latest" : `${m} min ago`, rvPause: "Pause", rvPlayLbl: "Play the last 2 hours",
     rvErr: "Rain radar is unavailable right now.",
@@ -663,6 +665,7 @@ const I18N = {
     camSlow: "ภาพโหลดช้า กล้องอาจไม่ออนไลน์", camNoSupport: "เบราว์เซอร์นี้เล่นภาพสดไม่ได้",
     camPaused: "หยุดภาพหลัง 90 วินาทีเพื่อประหยัดเน็ตมือถือ (ภาพสดใช้ข้อมูลประมาณ 25 MB ต่อนาที)", camResume: "ดูต่อ", camMore: "ดูเพิ่มที่ iTIC ↗",
     camOrg: { doh: "กล้องกรมทางหลวง · ผ่าน iTIC", itic: "กล้องมูลนิธิ iTIC", bma: "กล้องสำนักการจราจรและขนส่ง กทม.", pty: "กล้องเมืองพัทยา" },
+    tglRain: "ฝน 24 ชม.", tglPty: "กล้องพัทยา", ptyShown: "แสดงกล้องเมืองพัทยาแล้ว แตะกล้องเพื่อดูภาพสดที่เว็บไซต์เมืองพัทยา",
     layerRadar: "เรดาร์ฝนบนแผนที่ (สด)", rvTitle: "เรดาร์ฝน", rvLight: "เบา", rvHeavy: "หนัก",
     rvAgo: m => m <= 5 ? "ล่าสุด" : `${m} นาทีที่แล้ว`, rvPause: "หยุด", rvPlayLbl: "เล่นย้อนหลัง 2 ชั่วโมง",
     rvErr: "ขณะนี้โหลดเรดาร์ฝนไม่ได้",
@@ -1086,6 +1089,7 @@ function renderStatic() {
   document.getElementById("lang").textContent = lang === "en" ? "ไทย" : "EN";
   const near = document.getElementById("near"); if (near) near.textContent = t.myLoc;
   const rb = document.getElementById("routeBtn"); if (rb) rb.textContent = t.routeBtn;
+  if (typeof syncOptionalButtons === "function") syncOptionalButtons();
   document.getElementById("places").innerHTML = PLACES.map(p => `<button class="btn" type="button" data-place="${p.key}">${p[lang]}</button>`).join("");
   const sel = document.getElementById("province"), cur = sel.value;
   sel.innerHTML = `<option value="">${t.allProvinces}</option>` +
@@ -1739,6 +1743,37 @@ $("showRadarOverlay").onchange = e => setRadarOverlay(e.target.checked);
 $("rvPlay").onclick = () => rvPlay(!rvTimer);
 $("rvSlider").oninput = e => { rvPlay(false); rvShow(+e.target.value); };
 
+// Layers that start switched off (busy on phones); each visitor's choice is remembered
+const OPTIONAL_LAYERS = [
+  { cb: "showRain", btn: "tglRain", label: "tglRain" },
+  { cb: "showPtyCams", btn: "tglPty", label: "tglPty", where: { c: [12.927, 100.877], z: 13 } },
+];
+function optPrefs() { try { return JSON.parse(localStorage.getItem("tww-opt-layers") || "{}"); } catch { return {}; } }
+function syncOptionalButtons() {
+  for (const o of OPTIONAL_LAYERS) {
+    const b = $(o.btn); if (!b) continue;
+    const on = $(o.cb).checked;
+    b.setAttribute("aria-pressed", on);
+    b.textContent = (on ? "✓ " : "+ ") + T()[o.label];
+  }
+}
+function onOptionalLayer(o, byUser) {
+  syncOptionalButtons();
+  if (!byUser) return;
+  const p = optPrefs(); p[o.cb] = $(o.cb).checked;
+  try { localStorage.setItem("tww-opt-layers", JSON.stringify(p)); } catch {}
+  // Pattaya cameras only show at street zoom: take the visitor there when switched on from far away
+  if (o.where && $(o.cb).checked && (map.getZoom() < 13 || !map.getBounds().contains(o.where.c))) {
+    map.flyTo(o.where.c, o.where.z);
+    toast(T().ptyShown);
+  }
+}
+function restoreOptionalLayers() {
+  const p = optPrefs();
+  for (const o of OPTIONAL_LAYERS) if (typeof p[o.cb] === "boolean") $(o.cb).checked = p[o.cb];
+  syncOptionalButtons();
+}
+
 // government layer controls
 ["showBmaCams", "showPtyCams"].forEach(id => { $(id).onchange = drawCams; });
 $("showRain").onchange = drawRain;
@@ -1897,6 +1932,15 @@ async function boot() {
   near.type = "button"; near.id = "near"; near.className = "btn map-btn"; near.textContent = T().myLoc;
   near.onclick = e => { e.stopPropagation(); locate(false); };
   ctl.appendChild(near);
+  // Optional layers that start switched off: quick on/off buttons, kept in sync with the panel checkboxes
+  for (const o of OPTIONAL_LAYERS) {
+    const b = document.createElement("button");
+    b.type = "button"; b.id = o.btn; b.className = "btn map-btn tgl";
+    b.onclick = e => { e.stopPropagation(); const cb = $(o.cb); cb.checked = !cb.checked; cb.dispatchEvent(new Event("change")); };
+    ctl.appendChild(b);
+    $(o.cb).addEventListener("change", () => onOptionalLayer(o, true));
+  }
+  restoreOptionalLayers();
   // Overlay on the map area ourselves rather than via the map engine's control system,
   // so the buttons look and behave the same on Google Maps and OpenStreetMap.
   $("map").after(ctl);
