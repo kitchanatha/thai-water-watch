@@ -64,3 +64,15 @@ iTIC Foundation and Department of Highways cameras with HLS streams, placeholder
 cached 10 minutes. Tapping a camera opens a live viewer (hls.js from jsDelivr, or native HLS on older
 iPhones). Flood popups show "watch nearby camera" when one is within 1.5 km. Streams are about 3 Mbps,
 so playback pauses after 90 seconds and when the tab is hidden. Video © iTIC Foundation / DOH.
+
+## More government sources (gov.js)
+
+- `/api/gov/thaiwater` — ThaiWater `thailand_main` (HII): 24-h rainfall from TMD, RID, DWR, EGAT, HII,
+  Royal Forest Dept and DDPM gauges; 35 major dams (RID/EGAT); TMD radar images; HII rain forecast. Cached 10 min.
+- `/api/gov/traffy` — Traffy Fondue (BMA) complaints matching flood keywords, accumulated over 6 hours.
+- `/api/gov/bma-cameras`, `/api/gov/bma-cam/<id>.jpg` — BMA traffic cameras (bmatraffic.com): list from the
+  public home page, still images fetched on demand one at a time, cached 30 s, identified as ThaiWaterWatch.
+- `/api/gov/pattaya-cameras` — Pattaya City camera list. Video requires Pattaya's own site (it uses a bot
+  check), so we link there instead of embedding.
+- Not included: TMD warnings (need a registered TMD API key), BMA drainage sensors (block automated access),
+  GISTDA flood maps (need an API key).

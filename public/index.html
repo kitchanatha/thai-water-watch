@@ -179,6 +179,30 @@ main { position: relative; min-height: 0; }
 .votes .vq { width: 100%; font-weight: 600; }
 .votes .del { color: var(--l5); }
 
+/* Government layers */
+.cam-ic.bma span { background: #1f8f4e; }
+.cam-ic.pty span { background: #d9480f; }
+.cam-ic.off span { opacity: .45; }
+.cam-sq.bma { background: #1f8f4e; }
+.cam-sq.pty { background: #d9480f; }
+/* City cameras are dense: show them once zoomed in to street level */
+.mid .cam-ic.bma, .mid .cam-ic.pty, .far .rain-ic.r2 { display: none; }
+.cam-view img#camImg { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; background: #0e171b; }
+.cam-ext { padding: 10px 12px; display: grid; gap: 8px; font-size: 13px; }
+.cam-ext p { margin: 0; }
+.cam-ext a.btn { justify-self: start; text-decoration: none; }
+.rain-ic span { display: block; width: 100%; height: 100%; border-radius: 50%; border: 1.5px solid #fff; box-shadow: 0 0 0 1px rgb(0 0 0 / .2); box-sizing: border-box; }
+.dam-ic span { display: grid; place-items: center; width: 100%; height: 100%; border-radius: 4px 4px 12px 12px; color: #fff; font: 700 11px/1 var(--mono); border: 2px solid #fff; box-shadow: 0 1px 4px rgb(0 0 0 / .35); box-sizing: border-box; }
+.tf-ic span { display: grid; place-items: center; width: 100%; height: 100%; border-radius: 50%; background: #c2410c; color: #fff; font: 800 11px/1 var(--font); border: 2px solid #fff; box-shadow: 0 1px 3px rgb(0 0 0 / .4); box-sizing: border-box; }
+.tf-sq { background: #c2410c; border-radius: 50%; }
+.gov-block { display: grid; gap: 8px; }
+.sub-h { margin: 0; font-size: 13.5px; font-weight: 700; }
+details.gov-block summary { cursor: pointer; }
+.media { display: block; border-radius: 10px; overflow: hidden; border: 1px solid var(--line); background: #0e171b; }
+.media img { display: block; width: 100%; height: auto; }
+.src-list { margin: 0; padding-left: 18px; display: grid; gap: 4px; font-size: 12.5px; color: var(--muted); }
+.src-list a { color: var(--accent); }
+
 /* Live cameras */
 .cam-ic span { display: grid; place-items: center; width: 100%; height: 100%; border-radius: 50%; background: #243b53; border: 2px solid #fff; box-shadow: 0 1px 4px rgb(0 0 0 / .4); box-sizing: border-box; }
 .cam-ic.on span { background: #0b6e8a; box-shadow: 0 0 0 4px rgb(11 110 138 / .35), 0 1px 4px rgb(0 0 0 / .4); }
@@ -266,6 +290,32 @@ main { position: relative; min-height: 0; }
     <div id="summary" class="alert"><strong>…</strong></div>
   </section>
 
+  <section id="govSec" hidden>
+    <h2 data-t="govH"></h2>
+    <div id="rainSum" class="alert" hidden></div>
+    <div class="gov-block">
+      <h3 class="sub-h" data-t="radarH"></h3>
+      <select id="radarSel" aria-label="Radar"></select>
+      <a class="media" href="#" target="_blank" rel="noopener"><img id="radarImg" alt="" loading="lazy"></a>
+      <p class="hint" id="radarTime"></p>
+    </div>
+    <div class="gov-block">
+      <h3 class="sub-h" data-t="fcH"></h3>
+      <div class="seg" id="fcTabs"></div>
+      <a class="media" href="#" target="_blank" rel="noopener"><img id="fcImg" alt="" loading="lazy"></a>
+      <p class="hint" data-t="fcNote"></p>
+    </div>
+    <details class="gov-block" id="damBlock">
+      <summary class="sub-h" data-t="damH"></summary>
+      <div class="list" id="damList"></div>
+    </details>
+  </section>
+
+  <section>
+    <h2 data-t="srcH"></h2>
+    <ul class="src-list" id="srcList"></ul>
+  </section>
+
   <section id="snapSec" hidden>
     <h2 id="snapH"></h2>
     <p class="hint" id="snapNote"></p>
@@ -315,7 +365,12 @@ main { position: relative; min-height: 0; }
       <label id="trafficRow" hidden><input type="checkbox" id="showTraffic" checked><span class="sq traffic-sq"></span><span data-t="layerTraffic"></span></label>
       <label id="snapRow" hidden><input type="checkbox" id="showSnap" checked><span class="sq" style="background:#9b1c1c"></span><span id="snapLbl"></span><span class="count" id="snapCount"></span></label>
       <label id="proneRow" hidden><input type="checkbox" id="showProne"><span class="sq prone-sq"></span><span data-t="layerProne"></span><span class="count" id="proneCount"></span></label>
-      <label id="camRow" hidden><input type="checkbox" id="showCams" checked><span class="sq cam-sq"></span><span data-t="layerCams"></span><span class="count" id="camCount"></span></label>
+      <label id="rowCams" hidden><input type="checkbox" id="showCams" checked><span class="sq cam-sq"></span><span data-t="layerCams"></span><span class="count" id="countCams"></span></label>
+      <label id="rowBmaCams" hidden><input type="checkbox" id="showBmaCams" checked><span class="sq cam-sq bma"></span><span><span data-t="layerBmaCams"></span><br><small class="hint" data-t="camZoomHint"></small></span><span class="count" id="countBmaCams"></span></label>
+      <label id="rowPtyCams" hidden><input type="checkbox" id="showPtyCams" checked><span class="sq cam-sq pty"></span><span data-t="layerPtyCams"></span><span class="count" id="countPtyCams"></span></label>
+      <label id="rowRain" hidden><input type="checkbox" id="showRain" checked><span class="sq" style="background:#1f4fbf;border-radius:50%"></span><span data-t="layerRain"></span><span class="count" id="rainCount"></span></label>
+      <label id="rowDams" hidden><input type="checkbox" id="showDams" checked><span class="sq" style="background:#1f4fe0"></span><span data-t="layerDams"></span></label>
+      <label id="rowTraffy" hidden><input type="checkbox" id="showTraffy" checked><span class="sq tf-sq"></span><span data-t="layerTraffy"></span><span class="count" id="traffyCount"></span></label>
     </div>
     <div class="basemap" id="baseRow" hidden>
       <span data-t="baseMap"></span>
@@ -399,11 +454,13 @@ main { position: relative; min-height: 0; }
       <button class="btn cam-x" type="button" id="camClose" aria-label="Close">✕</button>
     </div>
     <video id="camVideo" muted autoplay playsinline controls></video>
+    <img id="camImg" alt="" hidden>
+    <div class="cam-ext" id="camExt" hidden></div>
     <p class="cam-status" id="camStatus" hidden></p>
     <div class="cam-foot">
       <span id="camOrg"></span>
       <button class="btn" type="button" id="camResume" hidden data-t="camResume"></button>
-      <a href="https://live.iticfoundation.org/" target="_blank" rel="noopener" data-t="camMore"></a>
+      <a id="camMore" href="https://live.iticfoundation.org/" target="_blank" rel="noopener" data-t="camMore"></a>
     </div>
   </div>
   <div class="toast" id="toast" role="status" hidden></div>
@@ -477,7 +534,34 @@ const I18N = {
     camLoading: "Loading live video…", camOffline: "This camera is offline right now. Try another one nearby.",
     camSlow: "The video is taking a while. The camera may be offline.", camNoSupport: "This browser can't play the live video.",
     camPaused: "Paused after 90 seconds to save mobile data (these streams use about 25 MB a minute).", camResume: "Keep watching", camMore: "More on iTIC ↗",
-    camOrg: { doh: "Department of Highways camera · via iTIC", itic: "iTIC Foundation camera" },
+    camOrg: { doh: "Department of Highways camera · via iTIC", itic: "iTIC Foundation camera", bma: "BMA Traffic and Transport Dept camera", pty: "Pattaya City camera" },
+    camMoreBy: { itic: "More on iTIC ↗", bma: "BMA traffic site ↗", pty: "" }, camZoomHint: "Zoom in to see BMA and Pattaya cameras.",
+    layerBmaCams: "BMA traffic cameras (photo every 30 s)", layerPtyCams: "Pattaya City cameras",
+    layerRain: "Rain in last 24 h (> 10 mm)", layerDams: "Major dams", layerTraffy: "Traffy Fondue flood complaints (6 h)",
+    camBmaInfo: t => `BMA camera still image, updates every 30 seconds · ${t}`, camPausedImg: "Stopped updating after 5 minutes.",
+    camPtyInfo: n => `Pattaya City streams this camera (${n}) on its own website, which checks that viewers are people. Search for the camera name there.`,
+    camPtyGo: "Watch on Pattaya City's site ↗", camPtyOffline: "Pattaya lists this camera as offline.",
+    govH: "Rain, radar and dams", radarH: "Weather radar (TMD)", fcH: "Rain forecast (HII)",
+    fcNote: "Forecast maps from the Hydro-Informatics Institute's weather model. Tap to enlarge.",
+    radarTime: t => `Radar image ${t}. Tap to enlarge.`, damH: "Major dams (RID / EGAT)",
+    rainSum: n => `${n} gauges recorded heavy rain (> 35 mm) in the last 24 hours`,
+    rainTop: (mm, s, p) => `Most: ${mm} mm at ${s}, ${p}`,
+    mm: "mm", mm24: "mm in 24 hours", rain1h: "Last hour",
+    rainCat: ["", "Light rain", "Moderate rain", "Heavy rain", "Very heavy rain"],
+    damPrefix: "", damCat: ["", "Very low (≤ 30%)", "Low (30–50%)", "Normal (50–80%)", "High (80–100%)", "Over capacity (> 100%)"],
+    damOfNormal: "of normal storage", damStorage: "Storage", damInflow: "Inflow today", damReleased: "Released today", damSpilled: "Spillway today", mcm: "million m³",
+    traffyH: "Flood complaint (Traffy Fondue)", traffyState: "Status", traffyOpen: "Open in Traffy Fondue ↗",
+    traffyNote: "A resident's report to BMA. Not verified.",
+    srcH: "Government data sources", srcList: [
+      ["Hydro-Informatics Institute (HII) · ThaiWater", "river levels, rain forecast, and data relayed from the agencies below", "https://www.thaiwater.net"],
+      ["Thai Meteorological Department", "weather radar, rain gauges", "https://www.tmd.go.th"],
+      ["Royal Irrigation Department · EGAT", "dam storage, rain gauges", "https://www.rid.go.th"],
+      ["Department of Water Resources · Royal Forest Dept · Dept of Disaster Prevention and Mitigation", "rain gauges", "https://www.dwr.go.th"],
+      ["Department of Highways", "flooded-road reports (via Longdo Traffic / iTIC), highway cameras", "https://www.doh.go.th"],
+      ["Bangkok Metropolitan Administration", "traffic cameras (bmatraffic.com), Traffy Fondue reports, drainage sensors and district reports (snapshot)", "https://www.bangkok.go.th"],
+      ["Pattaya City", "city camera locations; video on Pattaya's own site", "https://livestream.pattaya.go.th"],
+      ["iTIC Foundation · Longdo", "traffic events and camera streams", "https://www.iticfoundation.org"]
+    ],
     allDistricts: "Bangkok district: all", districtLbl: "District",
     layerTraffic: "Live traffic (Google)", baseMap: "Base map",
     gFallback: "Google Maps is unavailable right now, showing OpenStreetMap instead.",
@@ -550,7 +634,34 @@ const I18N = {
     camLoading: "กำลังโหลดภาพสด…", camOffline: "กล้องนี้ไม่ออนไลน์ในขณะนี้ ลองกล้องอื่นใกล้ๆ",
     camSlow: "ภาพโหลดช้า กล้องอาจไม่ออนไลน์", camNoSupport: "เบราว์เซอร์นี้เล่นภาพสดไม่ได้",
     camPaused: "หยุดภาพหลัง 90 วินาทีเพื่อประหยัดเน็ตมือถือ (ภาพสดใช้ข้อมูลประมาณ 25 MB ต่อนาที)", camResume: "ดูต่อ", camMore: "ดูเพิ่มที่ iTIC ↗",
-    camOrg: { doh: "กล้องกรมทางหลวง · ผ่าน iTIC", itic: "กล้องมูลนิธิ iTIC" },
+    camOrg: { doh: "กล้องกรมทางหลวง · ผ่าน iTIC", itic: "กล้องมูลนิธิ iTIC", bma: "กล้องสำนักการจราจรและขนส่ง กทม.", pty: "กล้องเมืองพัทยา" },
+    camMoreBy: { itic: "ดูเพิ่มที่ iTIC ↗", bma: "เว็บไซต์ สจส. กทม. ↗", pty: "" }, camZoomHint: "ซูมเข้าเพื่อดูกล้อง กทม. และเมืองพัทยา",
+    layerBmaCams: "กล้องจราจร กทม. (ภาพทุก 30 วิ)", layerPtyCams: "กล้องเมืองพัทยา",
+    layerRain: "ฝนสะสม 24 ชม. (> 10 มม.)", layerDams: "เขื่อนหลัก", layerTraffy: "เรื่องร้องเรียนน้ำท่วม Traffy Fondue (6 ชม.)",
+    camBmaInfo: t => `ภาพนิ่งจากกล้อง กทม. อัปเดตทุก 30 วินาที · ${t}`, camPausedImg: "หยุดอัปเดตภาพหลัง 5 นาที",
+    camPtyInfo: n => `เมืองพัทยาเผยแพร่ภาพสดจากกล้องนี้ (${n}) บนเว็บไซต์ของเมืองพัทยาเอง ซึ่งมีระบบตรวจสอบผู้ชม ค้นหาชื่อกล้องได้ที่นั่น`,
+    camPtyGo: "ดูภาพสดที่เว็บไซต์เมืองพัทยา ↗", camPtyOffline: "เมืองพัทยาระบุว่ากล้องนี้ออฟไลน์",
+    govH: "ฝน เรดาร์ และเขื่อน", radarH: "เรดาร์ตรวจอากาศ (กรมอุตุนิยมวิทยา)", fcH: "พยากรณ์ฝน (สสน.)",
+    fcNote: "แผนที่พยากรณ์ฝนจากแบบจำลองของสถาบันสารสนเทศทรัพยากรน้ำ แตะเพื่อดูภาพใหญ่",
+    radarTime: t => `ภาพเรดาร์เวลา ${t} แตะเพื่อดูภาพใหญ่`, damH: "เขื่อนหลัก (กรมชลประทาน / กฟผ.)",
+    rainSum: n => `ฝนตกหนัก (> 35 มม.) ${n} สถานี ใน 24 ชั่วโมงที่ผ่านมา`,
+    rainTop: (mm, s, p) => `สูงสุด ${mm} มม. ที่${s} จ.${p}`,
+    mm: "มม.", mm24: "มม. ใน 24 ชั่วโมง", rain1h: "ชั่วโมงล่าสุด",
+    rainCat: ["", "ฝนเล็กน้อย", "ฝนปานกลาง", "ฝนหนัก", "ฝนหนักมาก"],
+    damPrefix: "เขื่อน", damCat: ["", "น้ำน้อยวิกฤต (≤ 30%)", "น้ำน้อย (30–50%)", "น้ำปกติ (50–80%)", "น้ำมาก (80–100%)", "น้ำเกินความจุ (> 100%)"],
+    damOfNormal: "ของความจุปกติ", damStorage: "ปริมาณน้ำ", damInflow: "น้ำไหลเข้าวันนี้", damReleased: "ระบายวันนี้", damSpilled: "ระบายทางน้ำล้นวันนี้", mcm: "ล้าน ลบ.ม.",
+    traffyH: "เรื่องร้องเรียนน้ำท่วม (Traffy Fondue)", traffyState: "สถานะ", traffyOpen: "เปิดใน Traffy Fondue ↗",
+    traffyNote: "เรื่องที่ประชาชนแจ้ง กทม. ยังไม่ได้รับการยืนยัน",
+    srcH: "แหล่งข้อมูลจากหน่วยงานรัฐ", srcList: [
+      ["สถาบันสารสนเทศทรัพยากรน้ำ (สสน.) · ThaiWater", "ระดับน้ำในแม่น้ำ พยากรณ์ฝน และข้อมูลที่รวบรวมจากหน่วยงานด้านล่าง", "https://www.thaiwater.net"],
+      ["กรมอุตุนิยมวิทยา", "เรดาร์ตรวจอากาศ สถานีวัดฝน", "https://www.tmd.go.th"],
+      ["กรมชลประทาน · กฟผ.", "ปริมาณน้ำในเขื่อน สถานีวัดฝน", "https://www.rid.go.th"],
+      ["กรมทรัพยากรน้ำ · กรมป่าไม้ · กรมป้องกันและบรรเทาสาธารณภัย", "สถานีวัดฝน", "https://www.dwr.go.th"],
+      ["กรมทางหลวง", "รายงานน้ำท่วมทางหลวง (ผ่าน Longdo Traffic / iTIC) กล้องทางหลวง", "https://www.doh.go.th"],
+      ["กรุงเทพมหานคร", "กล้องจราจร (bmatraffic.com) เรื่องร้องเรียน Traffy Fondue เซ็นเซอร์และรายงานเขต (ภาพรวม)", "https://www.bangkok.go.th"],
+      ["เมืองพัทยา", "ตำแหน่งกล้องของเมือง ดูภาพสดที่เว็บไซต์เมืองพัทยา", "https://livestream.pattaya.go.th"],
+      ["มูลนิธิ iTIC · Longdo", "เหตุการณ์จราจรและภาพสดจากกล้อง", "https://www.iticfoundation.org"]
+    ],
     allDistricts: "เขตในกรุงเทพฯ: ทั้งหมด", districtLbl: "เขต",
     layerTraffic: "สภาพการจราจร (Google)", baseMap: "แผนที่พื้นฐาน",
     gFallback: "ใช้ Google Maps ไม่ได้ในขณะนี้ จึงแสดงแผนที่ OpenStreetMap แทน",
@@ -971,34 +1082,41 @@ async function load() {
   }
 }
 
-// ---- Live traffic cameras (iTIC Foundation / Department of Highways) ----
-let CAMS = [], camMarkers = [], camHls = null, camOpen = null, camLoadTimer = null, camStopTimer = null;
+// ---- Live traffic cameras: iTIC/DOH (video), BMA (still images every 30 s), Pattaya City (watch on their site) ----
+let CAMS = [], camMarkers = [], camHls = null, camOpen = null, camLoadTimer = null, camStopTimer = null, camImgTimer = null;
 const HLS_SRC = "https://cdn.jsdelivr.net/npm/hls.js@1.5.15/dist/hls.min.js";
-const CAM_MAX_MS = 90 * 1000; // streams are ~3 Mbps (about 25 MB a minute): pause after 90 s to spare iTIC's servers (and the viewer's data)
+const CAM_MAX_MS = 90 * 1000;        // video streams are ~3 Mbps (about 25 MB a minute): pause after 90 s
+const CAM_IMG_MAX_MS = 5 * 60 * 1000; // BMA stills are ~45 KB every 30 s: stop refreshing after 5 min
 const CAM_ICON = `<span><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path fill="#fff" d="M4 7h11a2 2 0 0 1 2 2v1.5l3.2-2.1A.5.5 0 0 1 21 8.8v6.4a.5.5 0 0 1-.8.4L17 13.5V15a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2z"/></svg></span>`;
+const CAM_TOGGLE = { itic: "showCams", bma: "showBmaCams", pty: "showPtyCams" };
+const PATTAYA_SITE = "https://livestream.pattaya.go.th/";
 
 function distMeters(aLat, aLng, bLat, bLng) {
   const k = Math.PI / 180, x = (bLng - aLng) * k * Math.cos((aLat + bLat) / 2 * k), y = (bLat - aLat) * k;
   return Math.hypot(x, y) * 6371000;
 }
+// Nearest camera we can show inside the site (video or BMA stills)
 function nearestCam(lat, lng, maxM = 1500) {
   let best = null, bd = Infinity;
-  for (const c of CAMS) { const d = distMeters(lat, lng, c.lat, c.lng); if (d < bd) { bd = d; best = c; } }
+  for (const c of CAMS) {
+    if (c.src === "pty") continue;
+    const d = distMeters(lat, lng, c.lat, c.lng);
+    if (d < bd) { bd = d; best = c; }
+  }
   return best && bd <= maxM ? { cam: best, d: bd } : null;
 }
 const fmtDist = m => m < 1000 ? `${Math.round(m / 10) * 10} ${lang === "th" ? "ม." : "m"}` : `${(m / 1000).toFixed(1)} ${T().km}`;
-// "Watch nearby camera" button for flood popups
 function camBtn(lat, lng) {
   const n = CAMS.length && nearestCam(lat, lng);
-  return n ? `<button class="btn cam-near" type="button" data-cam="${esc(n.cam.id)}">▶ ${T().camNear(fmtDist(n.d))}</button>` : "";
+  return n ? `<button class="btn cam-near" type="button" data-cam="${esc(n.cam.key)}">▶ ${T().camNear(fmtDist(n.d))}</button>` : "";
 }
 
 function drawCams() {
   camMarkers.forEach(m => m.remove()); camMarkers = [];
-  if (!$("showCams").checked) return;
-  camMarkers = CAMS.map(c => {
-    const m = map.marker({ lat: c.lat, lng: c.lng, cls: "cam-ic" + (camOpen === c.id ? " on" : ""), html: CAM_ICON, w: 22, h: 22, z: 200,
-      title: c.title, onClick: () => openCam(c.id), data: c });
+  const on = { itic: $("showCams").checked, bma: $("showBmaCams").checked, pty: $("showPtyCams").checked };
+  camMarkers = CAMS.filter(c => on[c.src]).map(c => {
+    const m = map.marker({ lat: c.lat, lng: c.lng, cls: `cam-ic ${c.src}${c.online === false ? " off" : ""}${camOpen === c.key ? " on" : ""}`,
+      html: CAM_ICON, w: 22, h: 22, z: 200, title: c.title, onClick: () => openCam(c.key), data: c });
     m.show();
     return m;
   });
@@ -1019,30 +1137,56 @@ function camStatus(msg, bad) {
   el.textContent = msg || ""; el.hidden = !msg; el.classList.toggle("bad", !!bad);
 }
 function stopStream() {
-  clearTimeout(camLoadTimer); clearTimeout(camStopTimer);
+  clearTimeout(camLoadTimer); clearTimeout(camStopTimer); clearInterval(camImgTimer);
   if (camHls) { camHls.destroy(); camHls = null; }
   const v = $("camVideo");
   v.pause(); v.removeAttribute("src"); v.load();
+  $("camImg").onload = $("camImg").onerror = null;
 }
-async function openCam(id) {
-  const c = CAMS.find(x => x.id === id); if (!c) return;
-  const t = T(), v = $("camVideo");
+
+async function openCam(key) {
+  const c = CAMS.find(x => x.key === key); if (!c) return;
+  const t = T(), v = $("camVideo"), img = $("camImg");
   map.closePopup();
   stopStream();
-  camOpen = id;
+  camOpen = key;
   $("camView").hidden = false;
   $("camTitle").textContent = c.title;
-  $("camOrg").textContent = t.camOrg[c.org];
+  $("camOrg").textContent = t.camOrg[c.org || c.src];
   $("camResume").hidden = true;
-  camStatus(t.camLoading);
+  $("camMore").href = c.src === "bma" ? "http://www.bmatraffic.com/index.aspx" : "https://live.iticfoundation.org/";
+  $("camMore").textContent = t.camMoreBy[c.src];
+  $("camMore").hidden = c.src === "pty";
+  v.hidden = c.src !== "itic"; img.hidden = c.src !== "bma"; $("camExt").hidden = c.src !== "pty";
   drawCams();
+
+  if (c.src === "pty") {
+    camStatus(c.online === false ? t.camPtyOffline : "");
+    $("camExt").innerHTML = `<p>${t.camPtyInfo(esc(c.title))}</p><a class="btn on" href="${PATTAYA_SITE}" target="_blank" rel="noopener">${t.camPtyGo}</a>`;
+    return;
+  }
+
+  if (c.src === "bma") {
+    // Still images through our server (BMA's site needs a session); refresh every 30 s
+    camStatus(t.camLoading);
+    const load = () => { img.src = `/api/gov/bma-cam/${encodeURIComponent(c.id)}.jpg?t=${Date.now()}`; };
+    img.onload = () => camStatus(t.camBmaInfo(new Date().toLocaleTimeString(lang === "th" ? "th-TH" : "en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit" })));
+    img.onerror = () => camStatus(t.camOffline, true);
+    load();
+    camImgTimer = setInterval(load, 30000);
+    camStopTimer = setTimeout(() => { stopStream(); camStatus(t.camPausedImg); $("camResume").hidden = false; }, CAM_IMG_MAX_MS);
+    return;
+  }
+
+  // iTIC / DOH live video
+  camStatus(t.camLoading);
   v.onplaying = () => camStatus("");
   camLoadTimer = setTimeout(() => { if (v.readyState < 2) camStatus(t.camSlow, true); }, 15000);
   camStopTimer = setTimeout(() => { stopStream(); camStatus(t.camPaused); $("camResume").hidden = false; }, CAM_MAX_MS);
   try {
     // Prefer hls.js (robust live playback); fall back to the browser's own HLS (older iPhones)
     try { await loadHls(); } catch {}
-    if (camOpen !== id) return;             // viewer switched cameras while loading
+    if (camOpen !== key) return;             // viewer switched cameras while loading
     if (!(window.Hls && Hls.isSupported())) {
       if (!v.canPlayType("application/vnd.apple.mpegurl")) { camStatus(t.camNoSupport, true); return; }
       v.src = c.hls;
@@ -1065,17 +1209,163 @@ function closeCam() {
   drawCams();
 }
 async function loadCams() {
-  try {
-    const j = await (await fetch("/api/cameras")).json();
-    if (!j.cameras) throw new Error(j.error || "no cameras");
-    CAMS = j.cameras;
-    $("camRow").hidden = false;
-    $("camCount").textContent = CAMS.length;
-    drawCams();
-  } catch (e) { console.warn("Cameras unavailable:", e.message); }
+  const get = u => fetch(u).then(r => r.json()).then(j => j.cameras || []).catch(() => []);
+  const [itic, bma, pty] = await Promise.all([get("/api/cameras"), get("/api/gov/bma-cameras"), get("/api/gov/pattaya-cameras")]);
+  CAMS = [
+    ...itic.map(c => ({ ...c, src: "itic", key: "itic:" + c.id })),
+    ...bma.map(c => ({ ...c, src: "bma", key: "bma:" + c.id, title: c.title + (c.dir ? ` (${c.dir})` : "") })),
+    ...pty.map(c => ({ ...c, src: "pty", key: "pty:" + c.id })),
+  ];
+  const n = { itic: itic.length, bma: bma.length, pty: pty.length };
+  for (const s of Object.keys(n)) { $(CAM_TOGGLE[s].replace("show", "row")).hidden = !n[s]; $(CAM_TOGGLE[s].replace("show", "count")).textContent = n[s]; }
+  drawCams();
 }
 // Don't keep streaming in a background tab
 document.addEventListener("visibilitychange", () => { if (document.hidden && camOpen) closeCam(); });
+
+// ---- Government data: rainfall (7 agencies), dams (RID/EGAT), TMD radar, HII forecast, Traffy Fondue (BMA) ----
+let GOVTW = null, TRAFFY = null, rainMarkers = [], damMarkers = [], traffyMarkers = [];
+// TMD 24-hour rainfall scale (mm): light 0.1–10, moderate 10.1–35, heavy 35.1–90, very heavy > 90
+const RAIN_COL = ["", "#9fd3f2", "#3d9be0", "#1f4fbf", "#6a1b9a"];
+const rainCat = mm => mm > 90 ? 4 : mm > 35 ? 3 : mm > 10 ? 2 : 1;
+// ThaiWater dam scale (% of normal storage)
+const damCat = p => p > 100 ? 5 : p > 80 ? 4 : p > 50 ? 3 : p > 30 ? 2 : 1;
+const DAM_COL = ["", "#db802b", "#e0a800", "#00a14b", "#1f4fe0", "#e02020"];
+const fmtN = (v, d = 0) => v == null || isNaN(v) ? "–" : Number(v).toLocaleString(lang === "th" ? "th-TH" : "en-GB", { maximumFractionDigits: d, minimumFractionDigits: d });
+
+function rainPopup(r) {
+  const t = T(), c = rainCat(r.mm);
+  return `<div class="pop">
+    <h3>${esc(nm(r.name) || "–")}</h3>
+    <div class="where">${[nm(r.amphoe), nm(r.province)].filter(Boolean).map(esc).join(", ")}</div>
+    <div class="depthbar"><span class="big" style="color:${RAIN_COL[c]}">${fmtN(r.mm, 1)}</span><span>${t.mm24}</span></div>
+    <span class="pill" style="background:${RAIN_COL[c]}">${t.rainCat[c]}</span>
+    <dl class="kv">
+      <dt>${t.rain1h}</dt><dd>${fmtN(r.mm1h, 1)} ${t.mm}</dd>
+      <dt>${t.src}</dt><dd style="font-family:var(--font)">${esc(nm(r.agency))}</dd>
+      <dt>${t.measured}</dt><dd>${fmtTime(r.time)}</dd>
+    </dl>
+    ${camBtn(r.lat, r.lng)}
+  </div>`;
+}
+function damPopup(d) {
+  const t = T(), c = damCat(d.pct);
+  const w = Math.max(0, Math.min(d.pct || 0, 120)) / 120 * 100;
+  return `<div class="pop">
+    <h3>${t.damPrefix}${esc(nm(d.name))}</h3>
+    <div class="where">${[nm(d.province), nm(d.basin)].filter(Boolean).map(esc).join(" · ")}</div>
+    <span class="pill" style="background:${DAM_COL[c]}">${t.damCat[c]}</span> <strong style="margin-left:6px">${fmtN(d.pct, 1)}%</strong> <span style="color:var(--muted)">${t.damOfNormal}</span>
+    <div class="gauge"><i style="width:${w}%;background:${DAM_COL[c]}"></i><b style="left:${100 / 120 * 100}%"></b></div>
+    <dl class="kv">
+      <dt>${t.damStorage}</dt><dd>${fmtN(d.storage)} / ${fmtN(d.normal)} ${t.mcm}</dd>
+      <dt>${t.damInflow}</dt><dd>${fmtN(d.inflow, 2)} ${t.mcm}</dd>
+      <dt>${t.damReleased}</dt><dd>${fmtN(d.released, 2)} ${t.mcm}</dd>
+      ${d.spilled ? `<dt>${t.damSpilled}</dt><dd>${fmtN(d.spilled, 2)} ${t.mcm}</dd>` : ""}
+      <dt>${t.src}</dt><dd style="font-family:var(--font)">${esc(nm(d.agency))}</dd>
+      <dt>${t.measured}</dt><dd>${esc(d.date || "–")}</dd>
+    </dl>
+  </div>`;
+}
+function traffyPopup(r) {
+  const t = T();
+  return `<div class="pop">
+    <h3>${t.traffyH}</h3>
+    <div class="where">${esc(r.address)}</div>
+    <p style="margin:6px 0;font-size:12.5px">${esc(r.text)}</p>
+    ${r.photo ? `<a href="${esc(r.photo)}" target="_blank" rel="noopener"><img src="${esc(r.photo)}" alt="" loading="lazy" style="border-radius:6px;max-height:150px;width:100%;object-fit:cover"></a>` : ""}
+    <dl class="kv">
+      <dt>${t.reported}</dt><dd>${fmtTime(r.time)}</dd>
+      <dt>${t.traffyState}</dt><dd style="font-family:var(--font)">${esc(r.state)}</dd>
+    </dl>
+    <p class="hint" style="margin:4px 0">${t.traffyNote}</p>
+    ${camBtn(r.lat, r.lng)}
+    <a class="gmaps" href="https://share.traffy.in.th/teamchadchart/${encodeURIComponent(r.id)}" target="_blank" rel="noopener">${t.traffyOpen}</a>
+  </div>`;
+}
+
+function drawRain() {
+  rainMarkers.forEach(m => m.remove()); rainMarkers = [];
+  if (!GOVTW || !$("showRain").checked) return;
+  // Only moderate rain and up (> 10 mm in 24 h) to keep the map readable
+  rainMarkers = GOVTW.rain.filter(r => r.mm > 10).sort((a, b) => a.mm - b.mm).map(r => {
+    const c = rainCat(r.mm), s = c === 4 ? 14 : c === 3 ? 12 : 9;
+    const m = map.marker({ lat: r.lat, lng: r.lng, cls: `rain-ic r${c}`, html: `<span style="background:${RAIN_COL[c]}"></span>`, w: s, h: s, z: 50 + c,
+      title: `${nm(r.name)} · ${fmtN(r.mm, 1)} ${T().mm}`, popup: () => rainPopup(r) });
+    m.show();
+    return m;
+  });
+}
+function drawDams() {
+  damMarkers.forEach(m => m.remove()); damMarkers = [];
+  if (!GOVTW || !$("showDams").checked) return;
+  damMarkers = GOVTW.dams.map(d => {
+    const c = damCat(d.pct);
+    const m = map.marker({ lat: d.lat, lng: d.lng, cls: "dam-ic", html: `<span style="background:${DAM_COL[c]}">${Math.round(d.pct)}%</span>`, w: 46, h: 22, z: 2200,
+      title: T().damPrefix + nm(d.name), popup: () => damPopup(d), data: d });
+    m.show();
+    return m;
+  });
+}
+function drawTraffy() {
+  traffyMarkers.forEach(m => m.remove()); traffyMarkers = [];
+  if (!TRAFFY || !$("showTraffy").checked) return;
+  traffyMarkers = TRAFFY.reports.map(r => {
+    const m = map.marker({ lat: r.lat, lng: r.lng, cls: "tf-ic", html: "<span>!</span>", w: 18, h: 18, z: 900, title: r.text.slice(0, 80), popup: () => traffyPopup(r), data: r });
+    m.show();
+    return m;
+  });
+}
+
+function renderGovSection() {
+  const t = T();
+  if (GOVTW) {
+    const heavy = GOVTW.rain.filter(r => r.mm > 35).length, top = [...GOVTW.rain].sort((a, b) => b.mm - a.mm)[0];
+    $("rainSum").innerHTML = top ? `<strong>${t.rainSum(heavy)}</strong><small>${t.rainTop(fmtN(top.mm, 1), esc(nm(top.name)), esc(nm(top.province)))}</small>` : "";
+    $("rainSum").hidden = !top;
+    $("damList").innerHTML = [...GOVTW.dams].sort((a, b) => b.pct - a.pct).map(d => `
+      <button class="item" type="button" data-dam="${d.id}">
+        <span class="bar" style="background:${DAM_COL[damCat(d.pct)]}"></span>
+        <span><span class="nm">${t.damPrefix}${esc(nm(d.name))}</span><br><span class="pv">${esc(nm(d.province))} · ${t.damCat[damCat(d.pct)]}</span></span>
+        <span class="pct">${fmtN(d.pct, 1)}%</span>
+      </button>`).join("");
+    // Radar picker: Bangkok-area radars first
+    const sel = $("radarSel"), cur = sel.value;
+    const pri = ["nkm", "svp120", "njk", "svp240", "skm120"];
+    const radars = [...GOVTW.radar].sort((a, b) => ((pri.indexOf(a.type) + 1) || 99) - ((pri.indexOf(b.type) + 1) || 99));
+    sel.innerHTML = radars.map(r => `<option value="${esc(r.type)}">${esc(r.name)}</option>`).join("");
+    sel.value = cur && radars.some(r => r.type === cur) ? cur : (radars[0] && radars[0].type) || "";
+    showRadar();
+    $("fcTabs").innerHTML = GOVTW.forecast.map((f, i) => `<button class="btn${i === 0 ? " on" : ""}" type="button" data-fc="${i}">${fmtDay(f.time)}</button>`).join("");
+    showForecast(0);
+    $("govSec").hidden = false;
+  }
+  if (TRAFFY) $("traffyCount").textContent = TRAFFY.reports.length;
+}
+const fmtDay = iso => new Date(iso).toLocaleDateString(lang === "th" ? "th-TH" : "en-GB", { weekday: "short", day: "numeric", month: "short" });
+function showRadar() {
+  const r = GOVTW && GOVTW.radar.find(x => x.type === $("radarSel").value);
+  if (!r) return;
+  $("radarImg").src = r.img; $("radarImg").alt = r.name;
+  $("radarTime").textContent = T().radarTime(fmtTime(r.time));
+  $("radarImg").parentElement.href = r.img;
+}
+function showForecast(i) {
+  const f = GOVTW && GOVTW.forecast[i]; if (!f) return;
+  $("fcImg").src = f.img; $("fcImg").parentElement.href = f.img;
+  $("fcTabs").querySelectorAll("[data-fc]").forEach(b => b.classList.toggle("on", +b.dataset.fc === i));
+}
+
+async function loadGov() {
+  const [tw, tf] = await Promise.all([
+    fetch("/api/gov/thaiwater").then(r => r.ok ? r.json() : null).catch(() => null),
+    fetch("/api/gov/traffy").then(r => r.ok ? r.json() : null).catch(() => null),
+  ]);
+  if (tw) GOVTW = tw;
+  if (tf) TRAFFY = tf;
+  $("rowRain").hidden = !GOVTW; $("rowDams").hidden = !GOVTW; $("rowTraffy").hidden = !TRAFFY;
+  if (GOVTW) $("rainCount").textContent = GOVTW.rain.filter(r => r.mm > 10).length;
+  drawRain(); drawDams(); drawTraffy(); renderGovSection();
+}
 
 // ---- BMA snapshot (sensors + district office reports) and flood-prone roads, imported from a community page ----
 let SNAP = null, PRONE = null, snapLayers = [], proneLayers = [], snapMarkers = {};
@@ -1193,7 +1483,7 @@ async function loadSnapshot() {
   try {
     const [s, p] = await Promise.all([fetch("bkk-snapshot.json").then(r => r.json()), fetch("flood-prone.json").then(r => r.json())]);
     SNAP = s; PRONE = p;
-    drawSnap(); drawProne(); renderSnapSection();
+    drawSnap(); drawProne(); drawRain(); drawDams(); drawTraffy(); renderGovSection(); renderSources(); renderSnapSection();
   } catch (e) { console.warn("BMA snapshot unavailable:", e.message); }
 }
 // Hide the snapshot by itself once it is too old
@@ -1337,6 +1627,24 @@ async function planRoute() {
   } finally {
     go.disabled = false; go.textContent = t.rtGo;
   }
+}
+
+// government layer controls
+["showBmaCams", "showPtyCams"].forEach(id => { $(id).onchange = drawCams; });
+$("showRain").onchange = drawRain;
+$("showDams").onchange = drawDams;
+$("showTraffy").onchange = drawTraffy;
+$("radarSel").onchange = showRadar;
+$("fcTabs").onclick = e => { const b = e.target.closest("[data-fc]"); if (b) showForecast(+b.dataset.fc); };
+$("damList").onclick = e => {
+  const b = e.target.closest("[data-dam]"); if (!b) return;
+  const m = damMarkers.find(x => String(x.data.id) === b.dataset.dam);
+  if (!$("showDams").checked) { $("showDams").checked = true; drawDams(); }
+  const d = GOVTW.dams.find(x => String(x.id) === b.dataset.dam);
+  map.flyTo([d.lat, d.lng], 11, () => { const mk = damMarkers.find(x => String(x.data.id) === b.dataset.dam); if (mk) mk.open(); });
+};
+function renderSources() {
+  $("srcList").innerHTML = T().srcList.map(([n, what, url]) => `<li><a href="${url}" target="_blank" rel="noopener">${esc(n)}</a>: ${esc(what)}</li>`).join("");
 }
 
 // camera controls
@@ -1487,7 +1795,7 @@ async function boot() {
   $("routeSec").hidden = !CONFIG.routing;
   map.on("moveend", updateView);
   // shrink road depth labels to plain squares when zoomed out
-  const setFar = () => $("map").classList.toggle("far", map.getZoom() < 11);
+  const setFar = () => { $("map").classList.toggle("far", map.getZoom() < 11); $("map").classList.toggle("mid", map.getZoom() < 13); };
   map.on("zoomend", setFar); setFar();
 
   renderStatic();
@@ -1496,6 +1804,9 @@ async function boot() {
   loadDistricts();
   loadSnapshot();
   loadCams();
+  loadGov();
+  renderSources();
+  setInterval(loadGov, 10 * 60 * 1000);
   setInterval(() => { load(); loadRoads(); }, 5 * 60 * 1000);
 }
 boot();

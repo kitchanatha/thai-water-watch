@@ -224,6 +224,7 @@ async function handleReports(req, res, pathname) {
 }
 
 const routing = require("./routing");
+const gov = require("./gov");
 
 // Simple per-IP limiter so one visitor can't use up the free OpenRouteService quota
 const buckets = new Map();
@@ -337,6 +338,32 @@ const server = http.createServer(async (req, res) => {
   if (url.pathname === "/healthz") {
     res.writeHead(200, { "Content-Type": "text/plain" });
     return res.end(`ok (reports: ${await reports.check()}; routing: ${routing.enabled() ? "on" : "off, no ORS_API_KEY"})`);
+  }
+  // Government sources (see gov.js)
+  const GOV = { "/api/gov/thaiwater": gov.getThaiWater, "/api/gov/traffy": gov.getTraffy,
+    "/api/gov/bma-cameras": gov.getBmaCameras, "/api/gov/pattaya-cameras": gov.getPattayaCameras };
+  if (GOV[url.pathname]) {
+    try {
+      const body = await GOV[url.pathname]();
+      res.writeHead(200, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "public, max-age=60" });
+      return res.end(body);
+    } catch (e) {
+      console.error(url.pathname, "failed:", e.message);
+      return sendJson(res, 502, { error: "Source unavailable: " + e.message });
+    }
+  }
+  const bm = /^\/api\/gov\/bma-cam\/(\d{1,6})\.jpg$/.exec(url.pathname);
+  if (bm) {
+    if (!allowRate("b" + clientIp(req), 60, 60 * 1000)) return sendJson(res, 429, { error: "Too many camera requests" });
+    try {
+      const buf = await gov.getBmaImage(bm[1]);
+      if (!buf) return sendJson(res, 404, { error: "Camera image unavailable" });
+      res.writeHead(200, { "Content-Type": "image/jpeg", "Cache-Control": "public, max-age=30" });
+      return res.end(buf);
+    } catch (e) {
+      console.error("BMA camera failed:", e.message);
+      return sendJson(res, 502, { error: "Camera image unavailable" });
+    }
   }
   if (url.pathname === "/api/cameras") {
     try {
