@@ -15,6 +15,7 @@
 //   map.addControl(element)       top-right corner
 //   map.outline(polys)            polys: [[outerRing, ...holes]] with [lng,lat] points -> { remove() }
 //   map.line(latlngs, {color, weight, dash}) latlngs: [[lat,lng], ...] -> { remove() }
+//   map.tileOverlay({ url:(z,x,y)=>string, maxNativeZoom, opacity, zIndex, attribution }) -> { setOpacity(v), remove() }
 //   map.setTraffic(on)            Google only
 
 (function () {
@@ -81,6 +82,13 @@
       outline(polys) {
         const p = L.polygon(polys.map(poly => poly.map(r => r.map(([x, y]) => [y, x]))), OUTLINE_STYLE_L).addTo(lm);
         return { remove: () => p.remove() };
+      },
+      // Raster tile overlay; tiles above maxNativeZoom are enlarged from the parent tile
+      tileOverlay(o) {
+        const Layer = L.TileLayer.extend({ getTileUrl: (c) => o.url(c.z, c.x, c.y) });
+        const t = new Layer("", { opacity: o.opacity ?? 0.7, maxNativeZoom: o.maxNativeZoom ?? 18, maxZoom: 20,
+          zIndex: o.zIndex ?? 5, attribution: o.attribution || "", tileSize: 256 }).addTo(lm);
+        return { setOpacity: (v) => t.setOpacity(v), remove: () => t.remove() };
       },
       setTraffic() {},
     };
@@ -218,6 +226,46 @@
           strokeColor: OUTLINE.color, strokeWeight: OUTLINE.weight, strokeOpacity: 0.9, fillColor: OUTLINE.color, fillOpacity: OUTLINE.fill,
         }));
         return { remove: () => shapes.forEach(sh => sh.setMap(null)) };
+      },
+      tileOverlay(o) {
+        const maxN = o.maxNativeZoom ?? 18, tiles = new Set();
+        let opacity = o.opacity ?? 0.7;
+        const mt = {
+          tileSize: new g.Size(256, 256), maxZoom: 20,
+          getTile(coord, zoom, doc) {
+            const div = doc.createElement("div");
+            Object.assign(div.style, { width: "256px", height: "256px", overflow: "hidden", position: "relative", opacity });
+            const n = 2 ** zoom, x = ((coord.x % n) + n) % n, y = coord.y;
+            if (y < 0 || y >= n) return div;
+            const img = doc.createElement("img");
+            img.alt = ""; img.draggable = false;
+            if (zoom <= maxN) {
+              img.src = o.url(zoom, x, y);
+              Object.assign(img.style, { width: "256px", height: "256px" });
+            } else {
+              // Enlarge the matching part of the parent tile at maxNativeZoom
+              const k = 2 ** (zoom - maxN);
+              img.src = o.url(maxN, Math.floor(x / k), Math.floor(y / k));
+              Object.assign(img.style, { position: "absolute", width: 256 * k + "px", height: 256 * k + "px",
+                left: -(x % k) * 256 + "px", top: -(y % k) * 256 + "px", imageRendering: "auto" });
+            }
+            img.onerror = () => { img.style.visibility = "hidden"; };
+            div.appendChild(img);
+            tiles.add(div);
+            return div;
+          },
+          releaseTile(t) { tiles.delete(t); },
+        };
+        gm.overlayMapTypes.push(mt);
+        return {
+          setOpacity(v) { opacity = v; tiles.forEach((t) => { t.style.opacity = v; }); },
+          remove() {
+            const arr = gm.overlayMapTypes.getArray();
+            const i = arr.indexOf(mt);
+            if (i >= 0) gm.overlayMapTypes.removeAt(i);
+            tiles.clear();
+          },
+        };
       },
       setTraffic(on) { traffic.setMap(on ? gm : null); },
     };

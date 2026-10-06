@@ -37,9 +37,15 @@ const num = (v) => (v === null || v === undefined || v === "" ? null : Number(v)
 const bkkIso = (v) => (v ? new Date(v.replace(" ", "T") + "+07:00").toISOString() : null);
 
 // ---------- ThaiWater: rain, dams, radar, forecast ----------
-let twCache = { at: 0, body: null };
+let twCache = { at: 0, body: null }, twBusy = null;
+// The source is ~11 MB; after the first load, serve the last copy and refresh in the background
 async function getThaiWater() {
   if (twCache.body && Date.now() - twCache.at < 10 * 60 * 1000) return twCache.body;
+  if (!twBusy) twBusy = fetchThaiWater().finally(() => { twBusy = null; });
+  if (twCache.body) { twBusy.catch((e) => console.warn("ThaiWater refresh failed:", e.message)); return twCache.body; }
+  return twBusy;
+}
+async function fetchThaiWater() {
   const d = await getJson(TW_MAIN, { timeout: 90000 });
   const rain = ((d.rain && d.rain.data && d.rain.data.data) || [])
     .filter((r) => r.rain_24h > 0 && r.station && r.station.tele_station_lat)
@@ -120,7 +126,7 @@ function cookieFrom(headers) {
 }
 async function bmaSession() {
   if (bmaCookie && Date.now() - bmaCookieAt < 10 * 60 * 1000) return bmaCookie;
-  const r = await get(BMA + "/index.aspx", { timeout: 40000 });
+  const r = await get(BMA + "/index.aspx", { timeout: 15000 });
   bmaCookie = cookieFrom(r.headers) || bmaCookie;
   bmaCookieAt = Date.now();
   // The home page also carries the camera list: ['id','name','name_en','where','from',lat,lng,'ip','icon']
@@ -134,9 +140,21 @@ async function bmaSession() {
   if (cams.size) bmaList = { at: Date.now(), cams: [...cams.values()] };
   return bmaCookie;
 }
+// bmatraffic.com often doesn't answer requests from outside Thailand (where the site may be hosted),
+// so fall back to a saved copy of the camera list and retry the live site hourly.
+let bmaLiveTriedAt = 0, bmaLiveOk = false;
 async function getBmaCameras() {
-  if (!bmaList.cams.length || Date.now() - bmaList.at > 24 * 3600e3) { bmaCookieAt = 0; await bmaSession(); }
-  return JSON.stringify({ cameras: bmaList.cams });
+  const stale = !bmaList.cams.length || Date.now() - bmaList.at > 24 * 3600e3;
+  if (stale && Date.now() - bmaLiveTriedAt > 3600e3) {
+    bmaLiveTriedAt = Date.now();
+    try { bmaCookieAt = 0; await bmaSession(); bmaLiveOk = true; } catch (e) { bmaLiveOk = false; console.warn("bmatraffic.com unreachable:", e.message); }
+  }
+  if (!bmaList.cams.length) {
+    const saved = JSON.parse(require("fs").readFileSync(require("path").join(__dirname, "public", "bma-cameras.json"), "utf8"));
+    bmaList = { at: 0, cams: saved.cameras };
+  }
+  // live: whether this server can fetch BMA images; if not, the page links to BMA's own viewer
+  return JSON.stringify({ cameras: bmaList.cams, live: bmaLiveOk });
 }
 // Images: one at a time (BMA's session tracks the camera being viewed), cached 30 s per camera
 const bmaImg = new Map(); // id -> { at, buf }
@@ -144,6 +162,8 @@ let bmaQueue = Promise.resolve();
 function getBmaImage(id) {
   const hit = bmaImg.get(id);
   if (hit && Date.now() - hit.at < 30000) return Promise.resolve(hit.buf);
+  // Known unreachable from this server in the last hour: answer at once so the page can link to BMA instead
+  if (bmaLiveTriedAt && !bmaLiveOk && Date.now() - bmaLiveTriedAt < 3600e3) return Promise.resolve(null);
   const job = bmaQueue.then(async () => {
     const again = bmaImg.get(id);
     if (again && Date.now() - again.at < 30000) return again.buf;

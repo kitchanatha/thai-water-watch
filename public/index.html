@@ -179,6 +179,19 @@ main { position: relative; min-height: 0; }
 .votes .vq { width: 100%; font-weight: 600; }
 .votes .del { color: var(--l5); }
 
+/* Rain radar overlay */
+.rv-bar { position: absolute; z-index: 640; left: 10px; bottom: calc(84px + env(safe-area-inset-bottom, 0px)); width: min(300px, calc(100% - 20px));
+  display: flex; gap: 10px; align-items: center; padding: 8px 10px; background: var(--panel); color: var(--ink);
+  border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 4px 16px rgb(0 0 0 / .18); }
+.rv-play { width: 36px; height: 36px; padding: 0; border-radius: 50%; font-size: 13px; flex: none; }
+.rv-mid { flex: 1; display: grid; gap: 2px; min-width: 0; }
+.rv-top { display: flex; justify-content: space-between; gap: 6px; font-size: 12px; }
+.rv-top span { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rv-mid input { width: 100%; accent-color: var(--accent); margin: 0; }
+.rv-legend { display: flex; align-items: center; gap: 6px; font-size: 10.5px; color: var(--muted); }
+.rv-legend i { flex: 1; height: 6px; border-radius: 3px; background: linear-gradient(90deg, #cfcfcf, #6ec3f0, #1a73c9, #f5e83a, #f39c12, #e53935); }
+.rv-sq { background: linear-gradient(135deg, #1a73c9, #f5e83a 55%, #e53935); }
+
 /* Government layers */
 .cam-ic.bma span { background: #1f8f4e; }
 .cam-ic.pty span { background: #d9480f; }
@@ -369,6 +382,7 @@ details.gov-block summary { cursor: pointer; }
       <label id="rowBmaCams" hidden><input type="checkbox" id="showBmaCams" checked><span class="sq cam-sq bma"></span><span><span data-t="layerBmaCams"></span><br><small class="hint" data-t="camZoomHint"></small></span><span class="count" id="countBmaCams"></span></label>
       <label id="rowPtyCams" hidden><input type="checkbox" id="showPtyCams" checked><span class="sq cam-sq pty"></span><span data-t="layerPtyCams"></span><span class="count" id="countPtyCams"></span></label>
       <label id="rowRain" hidden><input type="checkbox" id="showRain" checked><span class="sq" style="background:#1f4fbf;border-radius:50%"></span><span data-t="layerRain"></span><span class="count" id="rainCount"></span></label>
+      <label id="rowRadar"><input type="checkbox" id="showRadarOverlay" checked><span class="sq rv-sq"></span><span data-t="layerRadar"></span></label>
       <label id="rowDams" hidden><input type="checkbox" id="showDams" checked><span class="sq" style="background:#1f4fe0"></span><span data-t="layerDams"></span></label>
       <label id="rowTraffy" hidden><input type="checkbox" id="showTraffy" checked><span class="sq tf-sq"></span><span data-t="layerTraffy"></span><span class="count" id="traffyCount"></span></label>
     </div>
@@ -448,6 +462,15 @@ details.gov-block summary { cursor: pointer; }
   </div>
 
 
+
+  <div class="rv-bar" id="rvBar" hidden>
+    <button class="btn rv-play" type="button" id="rvPlay" aria-label="Play">▶</button>
+    <div class="rv-mid">
+      <div class="rv-top"><strong data-t="rvTitle"></strong><span id="rvTime"></span></div>
+      <input type="range" id="rvSlider" min="0" max="11" step="1" value="11" aria-label="Radar time">
+      <div class="rv-legend"><span data-t="rvLight"></span><i></i><span data-t="rvHeavy"></span></div>
+    </div>
+  </div>
   <div class="cam-view" id="camView" role="dialog" aria-labelledby="camTitle" hidden>
     <div class="cam-head">
       <strong id="camTitle"></strong>
@@ -535,6 +558,11 @@ const I18N = {
     camSlow: "The video is taking a while. The camera may be offline.", camNoSupport: "This browser can't play the live video.",
     camPaused: "Paused after 90 seconds to save mobile data (these streams use about 25 MB a minute).", camResume: "Keep watching", camMore: "More on iTIC ↗",
     camOrg: { doh: "Department of Highways camera · via iTIC", itic: "iTIC Foundation camera", bma: "BMA Traffic and Transport Dept camera", pty: "Pattaya City camera" },
+    layerRadar: "Rain radar over the map (live)", rvTitle: "Rain radar", rvLight: "Light", rvHeavy: "Heavy",
+    rvAgo: m => m <= 5 ? "latest" : `${m} min ago`, rvPause: "Pause", rvPlayLbl: "Play the last 2 hours",
+    rvErr: "Rain radar is unavailable right now.",
+    camBmaExternal: "This BMA camera can't be loaded through our site right now. Open it on BMA's traffic site (works best from Thailand).",
+    camBmaGo: "Open this camera on BMA's site ↗",
     camMoreBy: { itic: "More on iTIC ↗", bma: "BMA traffic site ↗", pty: "" }, camZoomHint: "Zoom in to see BMA and Pattaya cameras.",
     layerBmaCams: "BMA traffic cameras (photo every 30 s)", layerPtyCams: "Pattaya City cameras",
     layerRain: "Rain in last 24 h (> 10 mm)", layerDams: "Major dams", layerTraffy: "Traffy Fondue flood complaints (6 h)",
@@ -635,6 +663,11 @@ const I18N = {
     camSlow: "ภาพโหลดช้า กล้องอาจไม่ออนไลน์", camNoSupport: "เบราว์เซอร์นี้เล่นภาพสดไม่ได้",
     camPaused: "หยุดภาพหลัง 90 วินาทีเพื่อประหยัดเน็ตมือถือ (ภาพสดใช้ข้อมูลประมาณ 25 MB ต่อนาที)", camResume: "ดูต่อ", camMore: "ดูเพิ่มที่ iTIC ↗",
     camOrg: { doh: "กล้องกรมทางหลวง · ผ่าน iTIC", itic: "กล้องมูลนิธิ iTIC", bma: "กล้องสำนักการจราจรและขนส่ง กทม.", pty: "กล้องเมืองพัทยา" },
+    layerRadar: "เรดาร์ฝนบนแผนที่ (สด)", rvTitle: "เรดาร์ฝน", rvLight: "เบา", rvHeavy: "หนัก",
+    rvAgo: m => m <= 5 ? "ล่าสุด" : `${m} นาทีที่แล้ว`, rvPause: "หยุด", rvPlayLbl: "เล่นย้อนหลัง 2 ชั่วโมง",
+    rvErr: "ขณะนี้โหลดเรดาร์ฝนไม่ได้",
+    camBmaExternal: "ขณะนี้ไม่สามารถโหลดภาพกล้อง กทม. ผ่านเว็บของเราได้ เปิดดูที่เว็บไซต์จราจรของ กทม. ได้เลย (ใช้งานได้ดีในประเทศไทย)",
+    camBmaGo: "เปิดกล้องนี้ที่เว็บ สจส. กทม. ↗",
     camMoreBy: { itic: "ดูเพิ่มที่ iTIC ↗", bma: "เว็บไซต์ สจส. กทม. ↗", pty: "" }, camZoomHint: "ซูมเข้าเพื่อดูกล้อง กทม. และเมืองพัทยา",
     layerBmaCams: "กล้องจราจร กทม. (ภาพทุก 30 วิ)", layerPtyCams: "กล้องเมืองพัทยา",
     layerRain: "ฝนสะสม 24 ชม. (> 10 มม.)", layerDams: "เขื่อนหลัก", layerTraffy: "เรื่องร้องเรียนน้ำท่วม Traffy Fondue (6 ชม.)",
@@ -1083,6 +1116,7 @@ async function load() {
 }
 
 // ---- Live traffic cameras: iTIC/DOH (video), BMA (still images every 30 s), Pattaya City (watch on their site) ----
+let BMA_LIVE = true;
 let CAMS = [], camMarkers = [], camHls = null, camOpen = null, camLoadTimer = null, camStopTimer = null, camImgTimer = null;
 const HLS_SRC = "https://cdn.jsdelivr.net/npm/hls.js@1.5.15/dist/hls.min.js";
 const CAM_MAX_MS = 90 * 1000;        // video streams are ~3 Mbps (about 25 MB a minute): pause after 90 s
@@ -1171,7 +1205,13 @@ async function openCam(key) {
     camStatus(t.camLoading);
     const load = () => { img.src = `/api/gov/bma-cam/${encodeURIComponent(c.id)}.jpg?t=${Date.now()}`; };
     img.onload = () => camStatus(t.camBmaInfo(new Date().toLocaleTimeString(lang === "th" ? "th-TH" : "en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit" })));
-    img.onerror = () => camStatus(t.camOffline, true);
+    const external = () => {
+      stopStream(); img.hidden = true; $("camExt").hidden = false;
+      camStatus("");
+      $("camExt").innerHTML = `<p>${t.camBmaExternal}</p><a class="btn on" href="http://www.bmatraffic.com/PlayVideo.aspx?ID=${encodeURIComponent(c.id)}" target="_blank" rel="noopener">${t.camBmaGo}</a>`;
+    };
+    if (!BMA_LIVE) return external();
+    img.onerror = external;
     load();
     camImgTimer = setInterval(load, 30000);
     camStopTimer = setTimeout(() => { stopStream(); camStatus(t.camPausedImg); $("camResume").hidden = false; }, CAM_IMG_MAX_MS);
@@ -1210,7 +1250,10 @@ function closeCam() {
 }
 async function loadCams() {
   const get = u => fetch(u).then(r => r.json()).then(j => j.cameras || []).catch(() => []);
-  const [itic, bma, pty] = await Promise.all([get("/api/cameras"), get("/api/gov/bma-cameras"), get("/api/gov/pattaya-cameras")]);
+  const bmaRes = fetch("/api/gov/bma-cameras").then(r => r.json()).catch(() => ({}));
+  const [itic, pty, bj] = await Promise.all([get("/api/cameras"), get("/api/gov/pattaya-cameras"), bmaRes]);
+  const bma = bj.cameras || [];
+  BMA_LIVE = bj.live !== false;
   CAMS = [
     ...itic.map(c => ({ ...c, src: "itic", key: "itic:" + c.id })),
     ...bma.map(c => ({ ...c, src: "bma", key: "bma:" + c.id, title: c.title + (c.dir ? ` (${c.dir})` : "") })),
@@ -1222,6 +1265,68 @@ async function loadCams() {
 }
 // Don't keep streaming in a background tab
 document.addEventListener("visibilitychange", () => { if (document.hidden && camOpen) closeCam(); });
+
+// ---- Rain radar over the map (RainViewer composite of national weather radars, last 2 hours) ----
+const RV_API = "https://api.rainviewer.com/public/weather-maps.json";
+const RV_OPACITY = 0.6;
+let RV = null, rvLayers = new Map(), rvIdx = 0, rvTimer = null, rvRefresh = null;
+
+async function loadRadarFrames() {
+  const j = await fetch(RV_API).then(r => r.json());
+  RV = { host: j.host, frames: (j.radar && j.radar.past) || [] };
+  // drop layers for frames that have rolled out of the 2-hour window
+  const keep = new Set(RV.frames.map(f => f.path));
+  for (const [p, l] of rvLayers) if (!keep.has(p)) { l.remove(); rvLayers.delete(p); }
+  $("rvSlider").max = Math.max(0, RV.frames.length - 1);
+}
+function rvLayer(f) {
+  if (!rvLayers.has(f.path)) {
+    rvLayers.set(f.path, map.tileOverlay({
+      // colour scheme 4 (grey/blue → yellow → red), smoothed; free tiles exist up to zoom 7 and are enlarged beyond
+      url: (z, x, y) => `${RV.host}${f.path}/256/${z}/${x}/${y}/4/1_0.png`,
+      maxNativeZoom: 7, opacity: 0, zIndex: 6,
+      attribution: '<a href="https://www.rainviewer.com/" target="_blank" rel="noopener">RainViewer</a>',
+    }));
+  }
+  return rvLayers.get(f.path);
+}
+function rvShow(i) {
+  if (!RV || !RV.frames.length) return;
+  rvIdx = (i + RV.frames.length) % RV.frames.length;
+  const f = RV.frames[rvIdx];
+  rvLayer(f).setOpacity(RV_OPACITY);
+  for (const [p, l] of rvLayers) if (p !== f.path) l.setOpacity(0);
+  const t = T(), when = new Date(f.time * 1000), ago = Math.round((Date.now() - when) / 60000);
+  $("rvTime").textContent = `${when.toLocaleTimeString(lang === "th" ? "th-TH" : "en-GB", { hour: "2-digit", minute: "2-digit" })} · ${t.rvAgo(ago)}`;
+  $("rvSlider").value = rvIdx;
+}
+function rvPlay(on) {
+  clearInterval(rvTimer); rvTimer = null;
+  $("rvPlay").textContent = on ? "❚❚" : "▶";
+  $("rvPlay").setAttribute("aria-label", on ? T().rvPause : T().rvPlayLbl);
+  if (!on) return;
+  RV.frames.forEach(rvLayer);            // start loading every frame so the loop is smooth
+  rvTimer = setInterval(() => rvShow(rvIdx + 1), 700);
+}
+async function setRadarOverlay(on) {
+  clearInterval(rvRefresh); rvPlay(false);
+  if (!on) {
+    for (const l of rvLayers.values()) l.remove();
+    rvLayers.clear();
+    $("rvBar").hidden = true;
+    return;
+  }
+  try {
+    await loadRadarFrames();
+    if (!RV.frames.length) throw new Error("no frames");
+    $("rvBar").hidden = false;
+    rvShow(RV.frames.length - 1);         // latest frame
+    rvRefresh = setInterval(async () => { const playing = !!rvTimer; await loadRadarFrames(); if (!playing) rvShow(RV.frames.length - 1); }, 10 * 60 * 1000);
+  } catch (e) {
+    $("rvBar").hidden = true;
+    toast(T().rvErr, true);
+  }
+}
 
 // ---- Government data: rainfall (7 agencies), dams (RID/EGAT), TMD radar, HII forecast, Traffy Fondue (BMA) ----
 let GOVTW = null, TRAFFY = null, rainMarkers = [], damMarkers = [], traffyMarkers = [];
@@ -1629,6 +1734,11 @@ async function planRoute() {
   }
 }
 
+// rain radar controls
+$("showRadarOverlay").onchange = e => setRadarOverlay(e.target.checked);
+$("rvPlay").onclick = () => rvPlay(!rvTimer);
+$("rvSlider").oninput = e => { rvPlay(false); rvShow(+e.target.value); };
+
 // government layer controls
 ["showBmaCams", "showPtyCams"].forEach(id => { $(id).onchange = drawCams; });
 $("showRain").onchange = drawRain;
@@ -1806,6 +1916,7 @@ async function boot() {
   loadCams();
   loadGov();
   renderSources();
+  setRadarOverlay($("showRadarOverlay").checked);
   setInterval(loadGov, 10 * 60 * 1000);
   setInterval(() => { load(); loadRoads(); }, 5 * 60 * 1000);
 }

@@ -76,3 +76,13 @@ so playback pauses after 90 seconds and when the tab is hidden. Video © iTIC Fo
   check), so we link there instead of embedding.
 - Not included: TMD warnings (need a registered TMD API key), BMA drainage sensors (block automated access),
   GISTDA flood maps (need an API key).
+
+## Rain radar over the map
+
+The browser loads RainViewer's public radar frames (https://api.rainviewer.com/public/weather-maps.json):
+a composite of national weather radars, last 2 hours in 10-minute frames, with a play/pause slider.
+Free tiles exist up to zoom 7; closer in, the zoom-7 tile is enlarged (map-adapter `tileOverlay`).
+
+BMA cameras: `public/bma-cameras.json` is a saved copy of the camera list, used when bmatraffic.com
+doesn't answer the server (it often drops requests from outside Thailand). In that case the viewer links
+to the camera on BMA's own site instead of showing the picture.
