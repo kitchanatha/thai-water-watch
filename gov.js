@@ -147,7 +147,9 @@ async function getBmaCameras() {
   const stale = !bmaList.cams.length || Date.now() - bmaList.at > 24 * 3600e3;
   if (stale && Date.now() - bmaLiveTriedAt > 3600e3) {
     bmaLiveTriedAt = Date.now();
-    try { bmaCookieAt = 0; await bmaSession(); bmaLiveOk = true; } catch (e) { bmaLiveOk = false; console.warn("bmatraffic.com unreachable:", e.message); }
+    // Check the live site in the background; the saved list answers straight away meanwhile
+    bmaCookieAt = 0;
+    bmaSession().then(() => { bmaLiveOk = true; }, (e) => { bmaLiveOk = false; console.warn("bmatraffic.com unreachable:", e.message); });
   }
   if (!bmaList.cams.length) {
     const saved = JSON.parse(require("fs").readFileSync(require("path").join(__dirname, "public", "bma-cameras.json"), "utf8"));
