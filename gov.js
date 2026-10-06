@@ -155,15 +155,63 @@ async function getBmaCameras() {
     const saved = JSON.parse(require("fs").readFileSync(require("path").join(__dirname, "public", "bma-cameras.json"), "utf8"));
     bmaList = { at: 0, cams: saved.cameras };
   }
-  // live: whether this server can fetch BMA images; if not, the page links to BMA's own viewer
-  return JSON.stringify({ cameras: bmaList.cams, live: bmaLiveOk });
+  // live: whether we can show BMA images (directly or via the relay); if not, the page links to BMA's own viewer
+  return JSON.stringify({ cameras: bmaList.cams, live: bmaLiveOk || relayConnected() });
 }
+
+// ---------- BMA image relay ----------
+// bmatraffic.com only answers computers in Thailand. A relay (relay.js on a PC in Thailand) long-polls
+// /api/relay/poll for camera ids that visitors asked for, fetches them from BMA and uploads them here.
+const RELAY_KEY = (process.env.BMA_RELAY_KEY || "").trim().replace(/^(["'])(.*)\1$/, "$2");
+let relaySeen = 0;
+const relayWant = new Set();          // camera ids waiting to be handed to the relay
+const relayWaiters = new Map();       // id -> [resolve]
+let pollWaiter = null;                // the relay's open poll request
+const relayConnected = () => !!RELAY_KEY && Date.now() - relaySeen < 60000;
+function relayAuth(key) {
+  if (!RELAY_KEY || typeof key !== "string" || key.length !== RELAY_KEY.length) return false;
+  return require("crypto").timingSafeEqual(Buffer.from(key), Buffer.from(RELAY_KEY));
+}
+function handOut() {
+  if (!pollWaiter || !relayWant.size) return;
+  const ids = [...relayWant]; relayWant.clear();
+  const w = pollWaiter; pollWaiter = null; w(ids);
+}
+function relayFetch(id) {
+  return new Promise((resolve) => {
+    const list = relayWaiters.get(id) || [];
+    list.push(resolve);
+    relayWaiters.set(id, list);
+    relayWant.add(id);
+    handOut();
+    setTimeout(() => resolve(null), 12000); // relay too slow or gone: let the page fall back
+  });
+}
+// Relay asks for work: answer with ids at once, or hold the request up to 25 s
+function relayPoll() {
+  relaySeen = Date.now();
+  if (relayWant.size) { const ids = [...relayWant]; relayWant.clear(); return Promise.resolve(ids); }
+  if (pollWaiter) pollWaiter([]);       // only one open poll at a time
+  return new Promise((resolve) => {
+    pollWaiter = resolve;
+    setTimeout(() => { if (pollWaiter === resolve) { pollWaiter = null; resolve([]); } }, 25000);
+  });
+}
+// Relay delivers a picture (or null when BMA had none)
+function relayUpload(id, buf) {
+  relaySeen = Date.now();
+  if (buf) bmaImg.set(id, { at: Date.now(), buf });
+  for (const r of relayWaiters.get(id) || []) r(buf || null);
+  relayWaiters.delete(id);
+}
+
 // Images: one at a time (BMA's session tracks the camera being viewed), cached 30 s per camera
 const bmaImg = new Map(); // id -> { at, buf }
 let bmaQueue = Promise.resolve();
 function getBmaImage(id) {
   const hit = bmaImg.get(id);
   if (hit && Date.now() - hit.at < 30000) return Promise.resolve(hit.buf);
+  if (relayConnected()) return relayFetch(id);
   // Known unreachable from this server in the last hour: answer at once so the page can link to BMA instead
   if (bmaLiveTriedAt && !bmaLiveOk && Date.now() - bmaLiveTriedAt < 3600e3) return Promise.resolve(null);
   const job = bmaQueue.then(async () => {
@@ -201,4 +249,4 @@ async function getPattayaCameras() {
   return body;
 }
 
-module.exports = { getThaiWater, getTraffy, getBmaCameras, getBmaImage, getPattayaCameras };
+module.exports = { getThaiWater, getTraffy, getBmaCameras, getBmaImage, getPattayaCameras, relayAuth, relayPoll, relayUpload, relayConnected };

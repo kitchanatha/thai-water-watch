@@ -86,3 +86,11 @@ Free tiles exist up to zoom 7; closer in, the zoom-7 tile is enlarged (map-adapt
 BMA cameras: `public/bma-cameras.json` is a saved copy of the camera list, used when bmatraffic.com
 doesn't answer the server (it often drops requests from outside Thailand). In that case the viewer links
 to the camera on BMA's own site instead of showing the picture.
+
+## BMA camera relay (relay.js)
+
+bmatraffic.com only answers computers in Thailand, while the site is hosted abroad. `relay.js` runs on a PC
+in Thailand: it long-polls `/api/relay/poll` for camera ids visitors opened, fetches those pictures from
+BMA and uploads them to `/api/relay/upload/<id>`. Both sides share a secret: `BMA_RELAY_KEY` on Render and
+`relay.key` next to relay.js (git-ignored). Start it with `start-relay.cmd`. When the relay is off, the
+viewer links to the camera on BMA's site. `/healthz` shows whether the relay is connected.

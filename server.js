@@ -337,7 +337,25 @@ const server = http.createServer(async (req, res) => {
   }
   if (url.pathname === "/healthz") {
     res.writeHead(200, { "Content-Type": "text/plain" });
-    return res.end(`ok (reports: ${await reports.check()}; routing: ${routing.enabled() ? "on" : "off, no ORS_API_KEY"})`);
+    return res.end(`ok (reports: ${await reports.check()}; routing: ${routing.enabled() ? "on" : "off, no ORS_API_KEY"}; bma relay: ${gov.relayConnected() ? "connected" : "not connected"})`);
+  }
+  // BMA image relay (relay.js on a PC in Thailand); every call must carry the shared key
+  if (url.pathname === "/api/relay/poll" || url.pathname.startsWith("/api/relay/upload/")) {
+    if (!gov.relayAuth(req.headers["x-relay-key"])) return sendJson(res, 403, { error: "Not allowed" });
+    if (url.pathname === "/api/relay/poll" && req.method === "GET") {
+      const ids = await gov.relayPoll();
+      return sendJson(res, 200, { ids });
+    }
+    const up = /^\/api\/relay\/upload\/(\d{1,6})$/.exec(url.pathname);
+    if (up && req.method === "POST") {
+      const chunks = []; let size = 0;
+      for await (const c of req) { size += c.length; if (size > 500 * 1024) return sendJson(res, 413, { error: "Too large" }); chunks.push(c); }
+      const buf = Buffer.concat(chunks);
+      // only accept real JPEGs (FF D8 magic bytes); an empty body means "BMA had no picture"
+      gov.relayUpload(up[1], buf.length > 3000 && buf[0] === 0xff && buf[1] === 0xd8 ? buf : null);
+      return sendJson(res, 200, { ok: true });
+    }
+    return sendJson(res, 404, { error: "Not found" });
   }
   // Government sources (see gov.js)
   const GOV = { "/api/gov/thaiwater": gov.getThaiWater, "/api/gov/traffy": gov.getTraffy,
