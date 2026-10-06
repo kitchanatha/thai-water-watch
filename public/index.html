@@ -1310,7 +1310,9 @@ document.addEventListener("visibilitychange", () => { if (document.hidden && cam
 
 // ---- Rain radar over the map (RainViewer composite of national weather radars, last 2 hours) ----
 const RV_API = "https://api.rainviewer.com/public/weather-maps.json";
-const RV_OPACITY = 0.6;
+// Radar fades as you zoom in: free tiles stop at zoom 7, so closer up they're enlarged and blocky
+// and would otherwise hide the streets underneath.
+const rvOpacity = () => { const z = map.getZoom(); return z <= 7 ? 0.6 : z <= 9 ? 0.5 : z <= 11 ? 0.4 : 0.3; };
 let RV = null, rvLayers = new Map(), rvIdx = 0, rvTimer = null, rvRefresh = null;
 
 async function loadRadarFrames() {
@@ -1336,7 +1338,7 @@ function rvShow(i) {
   if (!RV || !RV.frames.length) return;
   rvIdx = (i + RV.frames.length) % RV.frames.length;
   const f = RV.frames[rvIdx];
-  rvLayer(f).setOpacity(RV_OPACITY);
+  rvLayer(f).setOpacity(rvOpacity());
   for (const [p, l] of rvLayers) if (p !== f.path) l.setOpacity(0);
   const t = T(), when = new Date(f.time * 1000), ago = Math.round((Date.now() - when) / 60000);
   $("rvTime").textContent = `${when.toLocaleTimeString(lang === "th" ? "th-TH" : "en-GB", { hour: "2-digit", minute: "2-digit" })} · ${t.rvAgo(ago)}`;
@@ -1995,6 +1997,8 @@ async function boot() {
   // shrink road depth labels to plain squares when zoomed out
   const setFar = () => { $("map").classList.toggle("far", map.getZoom() < 11); $("map").classList.toggle("mid", map.getZoom() < 13); };
   map.on("zoomend", setFar); setFar();
+  // re-apply the radar's zoom-based transparency to the frame on screen
+  map.on("zoomend", () => { if (RV && rvLayers.size && !$("rvBar").hidden) rvLayer(RV.frames[rvIdx]).setOpacity(rvOpacity()); });
 
   renderStatic();
   load();
