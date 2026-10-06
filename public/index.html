@@ -216,6 +216,14 @@ details.gov-block summary { cursor: pointer; }
 .media img { display: block; width: 100%; height: auto; }
 .src-list { margin: 0; padding-left: 18px; display: grid; gap: 4px; font-size: 12.5px; color: var(--muted); }
 .src-list a { color: var(--accent); }
+.links { display: grid; gap: 6px; }
+.links a { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; padding: 9px 12px; border: 1px solid var(--line); border-radius: 10px; text-decoration: none; color: var(--ink); }
+.links a:hover { border-color: var(--accent); background: var(--accent-soft); }
+.links a b { font-weight: 600; }
+.links a small { grid-column: 1; color: var(--muted); font-size: 12px; }
+.links a .go { grid-row: 1 / span 2; grid-column: 2; align-self: center; color: var(--accent); }
+.links a.main { border-color: var(--accent); }
+.row-link { color: var(--accent); font-size: 12px; white-space: nowrap; }
 
 /* Live cameras */
 .cam-ic span { display: grid; place-items: center; width: 100%; height: 100%; border-radius: 50%; background: #243b53; border: 2px solid #fff; box-shadow: 0 1px 4px rgb(0 0 0 / .4); box-sizing: border-box; }
@@ -326,6 +334,12 @@ details.gov-block summary { cursor: pointer; }
   </section>
 
   <section>
+    <h2 data-t="linksH"></h2>
+    <div class="links" id="linkList"></div>
+    <p class="hint" data-t="hotlines"></p>
+  </section>
+
+  <section>
     <h2 data-t="srcH"></h2>
     <ul class="src-list" id="srcList"></ul>
   </section>
@@ -380,7 +394,7 @@ details.gov-block summary { cursor: pointer; }
       <label id="snapRow" hidden><input type="checkbox" id="showSnap" checked><span class="sq" style="background:#9b1c1c"></span><span id="snapLbl"></span><span class="count" id="snapCount"></span></label>
       <label id="proneRow" hidden><input type="checkbox" id="showProne"><span class="sq prone-sq"></span><span data-t="layerProne"></span><span class="count" id="proneCount"></span></label>
       <label id="rowCams" hidden><input type="checkbox" id="showCams" checked><span class="sq cam-sq"></span><span data-t="layerCams"></span><span class="count" id="countCams"></span></label>
-      <label id="rowBmaCams" hidden><input type="checkbox" id="showBmaCams" checked><span class="sq cam-sq bma"></span><span><span data-t="layerBmaCams"></span><br><small class="hint" data-t="camZoomHint"></small></span><span class="count" id="countBmaCams"></span></label>
+      <label id="rowBmaCams" hidden><input type="checkbox" id="showBmaCams" checked><span class="sq cam-sq bma"></span><span><span data-t="layerBmaCams"></span><br><small class="hint" data-t="camZoomHint"></small> <a class="row-link" href="http://www.bmatraffic.com/index.aspx" target="_blank" rel="noopener" data-t="bmaSiteLink"></a></span><span class="count" id="countBmaCams"></span></label>
       <label id="rowPtyCams" hidden><input type="checkbox" id="showPtyCams"><span class="sq cam-sq pty"></span><span data-t="layerPtyCams"></span><span class="count" id="countPtyCams"></span></label>
       <label id="rowRain" hidden><input type="checkbox" id="showRain"><span class="sq" style="background:#1f4fbf;border-radius:50%"></span><span data-t="layerRain"></span><span class="count" id="rainCount"></span></label>
       <label id="rowRadar"><input type="checkbox" id="showRadarOverlay" checked><span class="sq rv-sq"></span><span data-t="layerRadar"></span></label>
@@ -582,6 +596,17 @@ const I18N = {
     damOfNormal: "of normal storage", damStorage: "Storage", damInflow: "Inflow today", damReleased: "Released today", damSpilled: "Spillway today", mcm: "million m³",
     traffyH: "Flood complaint (Traffy Fondue)", traffyState: "Status", traffyOpen: "Open in Traffy Fondue ↗",
     traffyNote: "A resident's report to BMA. Not verified.",
+    linksH: "Related websites", bmaSiteLink: "Open BMA Traffic ↗",
+    hotlines: "Hotlines: DDPM disaster 1784 · BMA 1555 · Department of Highways 1586 · Highway police 1193",
+    linkList: [
+      ["BMA Traffic (bmatraffic.com)", "Bangkok traffic cameras and live traffic from BMA's Traffic and Transport Department", "http://www.bmatraffic.com/index.aspx", true],
+      ["BMA flood sensors", "Water depth on Bangkok roads from the Drainage and Sewerage Department", "https://weather.bangkok.go.th/flood"],
+      ["Traffy Fondue", "Report flooding or blocked drains to BMA", "https://fondue.traffy.in.th"],
+      ["iTIC live traffic", "Traffic events and highway cameras across Thailand", "https://live.iticfoundation.org"],
+      ["Pattaya City live cameras", "Pattaya's own camera viewer", "https://livestream.pattaya.go.th"],
+      ["ThaiWater", "National water situation from HII", "https://www.thaiwater.net"],
+      ["Thai Meteorological Department", "Official weather forecasts and warnings", "https://www.tmd.go.th"]
+    ],
     srcH: "Government data sources", srcList: [
       ["Hydro-Informatics Institute (HII) · ThaiWater", "river levels, rain forecast, and data relayed from the agencies below", "https://www.thaiwater.net"],
       ["Thai Meteorological Department", "weather radar, rain gauges", "https://www.tmd.go.th"],
@@ -688,6 +713,17 @@ const I18N = {
     damOfNormal: "ของความจุปกติ", damStorage: "ปริมาณน้ำ", damInflow: "น้ำไหลเข้าวันนี้", damReleased: "ระบายวันนี้", damSpilled: "ระบายทางน้ำล้นวันนี้", mcm: "ล้าน ลบ.ม.",
     traffyH: "เรื่องร้องเรียนน้ำท่วม (Traffy Fondue)", traffyState: "สถานะ", traffyOpen: "เปิดใน Traffy Fondue ↗",
     traffyNote: "เรื่องที่ประชาชนแจ้ง กทม. ยังไม่ได้รับการยืนยัน",
+    linksH: "เว็บไซต์ที่เกี่ยวข้อง", bmaSiteLink: "เปิดเว็บจราจร กทม. ↗",
+    hotlines: "สายด่วน: ปภ. 1784 · กทม. 1555 · กรมทางหลวง 1586 · ตำรวจทางหลวง 1193",
+    linkList: [
+      ["BMA Traffic (bmatraffic.com)", "กล้องจราจรและสภาพจราจรกรุงเทพฯ จากสำนักการจราจรและขนส่ง กทม.", "http://www.bmatraffic.com/index.aspx", true],
+      ["เซ็นเซอร์น้ำท่วมถนน กทม.", "ระดับน้ำบนถนนในกรุงเทพฯ จากสำนักการระบายน้ำ", "https://weather.bangkok.go.th/flood"],
+      ["Traffy Fondue", "แจ้งน้ำท่วมหรือท่อระบายน้ำอุดตันถึง กทม.", "https://fondue.traffy.in.th"],
+      ["iTIC จราจรสด", "เหตุการณ์จราจรและกล้องทางหลวงทั่วประเทศ", "https://live.iticfoundation.org"],
+      ["กล้องสดเมืองพัทยา", "ระบบดูภาพกล้องของเมืองพัทยา", "https://livestream.pattaya.go.th"],
+      ["ThaiWater", "สถานการณ์น้ำของประเทศจาก สสน.", "https://www.thaiwater.net"],
+      ["กรมอุตุนิยมวิทยา", "พยากรณ์อากาศและประกาศเตือนภัยอย่างเป็นทางการ", "https://www.tmd.go.th"]
+    ],
     srcH: "แหล่งข้อมูลจากหน่วยงานรัฐ", srcList: [
       ["สถาบันสารสนเทศทรัพยากรน้ำ (สสน.) · ThaiWater", "ระดับน้ำในแม่น้ำ พยากรณ์ฝน และข้อมูลที่รวบรวมจากหน่วยงานด้านล่าง", "https://www.thaiwater.net"],
       ["กรมอุตุนิยมวิทยา", "เรดาร์ตรวจอากาศ สถานีวัดฝน", "https://www.tmd.go.th"],
@@ -1192,7 +1228,8 @@ async function openCam(key) {
   $("camTitle").textContent = c.title;
   $("camOrg").textContent = t.camOrg[c.org || c.src];
   $("camResume").hidden = true;
-  $("camMore").href = c.src === "bma" ? "http://www.bmatraffic.com/index.aspx" : "https://live.iticfoundation.org/";
+  // BMA: open this same camera on BMA's traffic site
+  $("camMore").href = c.src === "bma" ? `${BMA_TRAFFIC}PlayVideo.aspx?ID=${encodeURIComponent(c.id)}` : "https://live.iticfoundation.org/";
   $("camMore").textContent = t.camMoreBy[c.src];
   $("camMore").hidden = c.src === "pty";
   v.hidden = c.src !== "itic"; img.hidden = c.src !== "bma"; $("camExt").hidden = c.src !== "pty";
@@ -1211,6 +1248,7 @@ async function openCam(key) {
     img.onload = () => camStatus(t.camBmaInfo(new Date().toLocaleTimeString(lang === "th" ? "th-TH" : "en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit" })));
     const external = () => {
       stopStream(); img.hidden = true; $("camExt").hidden = false;
+      $("camMore").hidden = true;   // the button below already opens this camera on BMA's site
       camStatus("");
       $("camExt").innerHTML = `<p>${t.camBmaExternal}</p><a class="btn on" href="http://www.bmatraffic.com/PlayVideo.aspx?ID=${encodeURIComponent(c.id)}" target="_blank" rel="noopener">${t.camBmaGo}</a>`;
     };
@@ -1788,7 +1826,13 @@ $("damList").onclick = e => {
   const d = GOVTW.dams.find(x => String(x.id) === b.dataset.dam);
   map.flyTo([d.lat, d.lng], 11, () => { const mk = damMarkers.find(x => String(x.data.id) === b.dataset.dam); if (mk) mk.open(); });
 };
+const BMA_TRAFFIC = "http://www.bmatraffic.com/";
+function renderLinks() {
+  $("linkList").innerHTML = T().linkList.map(([n, what, url, main]) =>
+    `<a class="${main ? "main" : ""}" href="${url}" target="_blank" rel="noopener"><b>${esc(n)}</b><small>${esc(what)}</small><span class="go" aria-hidden="true">↗</span></a>`).join("");
+}
 function renderSources() {
+  renderLinks();
   $("srcList").innerHTML = T().srcList.map(([n, what, url]) => `<li><a href="${url}" target="_blank" rel="noopener">${esc(n)}</a>: ${esc(what)}</li>`).join("");
 }
 
