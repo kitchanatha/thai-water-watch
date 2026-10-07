@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Thai Water Watch Stats</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&family=IBM+Plex+Sans+Thai:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f3f6f7; --panel: #ffffff; --ink: #14242b; --muted: #5b6d74; --line: #dbe3e6;
+  --accent: #0b6e8a; --accent-2: #9cc9d6; --accent-soft: #e2f0f4; --bad: #c62828;
+  --font: "IBM Plex Sans Thai", system-ui, -apple-system, "Segoe UI", Tahoma, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #0e171b; --panel: #152228; --ink: #e3edf0; --muted: #93a6ad; --line: #243740;
+    --accent: #4cc2e0; --accent-2: #2a5f6e; --accent-soft: #173640; --bad: #ff6b6b; color-scheme: dark; }
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.5 var(--font); padding: 24px 16px 48px; }
+main { max-width: 980px; margin: 0 auto; display: grid; gap: 16px; }
+header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 16px; }
+h1 { margin: 0; font-size: 22px; text-wrap: balance; }
+h1 span { color: var(--accent); }
+h2 { margin: 0 0 10px; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 600; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
+.muted { color: var(--muted); }
+form { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+input, select, button { font: inherit; color: inherit; }
+input, select { padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
+input { min-width: 0; flex: 1 1 220px; }
+button { padding: 7px 14px; border-radius: 8px; border: 1px solid var(--accent); background: var(--accent); color: #fff; cursor: pointer; font-weight: 600; }
+button.ghost { background: var(--panel); color: var(--accent); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.err { color: var(--bad); font-weight: 600; margin: 8px 0 0; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+.tile { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; display: grid; gap: 2px; }
+.tile b { font: 600 28px/1.1 var(--mono); font-variant-numeric: tabular-nums; }
+.tile span { color: var(--muted); font-size: 12.5px; }
+.chart-wrap { overflow-x: auto; }
+svg text { font: 11px var(--font); fill: var(--muted); }
+.legend { display: flex; gap: 14px; font-size: 12px; color: var(--muted); margin-top: 6px; }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+table { width: 100%; border-collapse: collapse; }
+td { padding: 6px 0; border-bottom: 1px solid var(--line); vertical-align: middle; }
+td.n { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; width: 64px; }
+td.bar { width: 40%; padding-left: 10px; }
+td.bar i { display: block; height: 8px; border-radius: 4px; background: var(--accent); min-width: 2px; }
+tr:last-child td { border-bottom: 0; }
+.empty { color: var(--muted); }
+.note { font-size: 12.5px; color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Thai <span>Water</span> Watch · สถิติผู้เข้าชม</h1>
+    <a href="/" style="color:var(--accent)">← กลับไปที่แผนที่</a>
+  </header>
+
+  <section class="card">
+    <form id="f">
+      <label for="key" class="muted">รหัสดูสถิติ (STATS_KEY)</label>
+      <input id="key" type="password" autocomplete="current-password" required>
+      <select id="days" aria-label="ช่วงเวลา">
+        <option value="7">7 วันล่าสุด</option>
+        <option value="30" selected>30 วันล่าสุด</option>
+        <option value="90">90 วันล่าสุด</option>
+      </select>
+      <button type="submit">ดูสถิติ</button>
+      <button type="button" class="ghost" id="forget">ลืมรหัสในเครื่องนี้</button>
+    </form>
+    <p class="err" id="err" hidden></p>
+  </section>
+
+  <div id="out" hidden>
+    <div class="tiles" id="tiles"></div>
+
+    <section class="card" style="margin-top:16px">
+      <h2>ผู้เข้าชมรายวัน (เวลาไทย)</h2>
+      <div class="chart-wrap"><svg id="chart" role="img" aria-label="Daily visitors chart"></svg></div>
+      <div class="legend"><span><i style="background:var(--accent)"></i>ผู้เข้าชม (ไม่ซ้ำต่อวัน)</span><span><i style="background:var(--accent-2)"></i>การเปิดหน้าเว็บ</span></div>
+    </section>
+
+    <div class="grid2" style="margin-top:16px">
+      <section class="card"><h2>มาจากไหน</h2><table id="ref"></table></section>
+      <section class="card"><h2>การใช้ฟีเจอร์</h2><table id="events"></table></section>
+      <section class="card"><h2>อุปกรณ์</h2><table id="device"></table></section>
+      <section class="card"><h2>ภาษาของเบราว์เซอร์</h2><table id="lang"></table></section>
+    </div>
+    <p class="note" id="storage"></p>
+  </div>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const fmt = n => Number(n || 0).toLocaleString("th-TH");
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+const EVENT_NAMES = {
+  route_planned: "วางแผนเส้นทางเลี่ยงน้ำ", report_sent: "ส่งรายงานน้ำท่วม", cam_itic: "เปิดกล้อง iTIC / กรมทางหลวง",
+  cam_bma: "เปิดกล้อง กทม.", cam_pty: "เปิดกล้องพัทยา", radar_play: "เล่นเรดาร์ฝนย้อนหลัง", layer_rain: "เปิดชั้นฝน 24 ชม.",
+  layer_pty: "เปิดชั้นกล้องพัทยา", district_pick: "เลือกเขต กทม.", lang_en: "เปลี่ยนเป็นภาษาอังกฤษ", lang_th: "เปลี่ยนเป็นภาษาไทย",
+  share_gmaps: "นำทางใน Google Maps",
+};
+const LABELS = { mobile: "มือถือ / แท็บเล็ต", desktop: "คอมพิวเตอร์", th: "ไทย", other: "ภาษาอื่น", "direct / other": "พิมพ์ลิงก์เอง / แอป / ไม่ทราบ" };
+
+try { $("key").value = localStorage.getItem("tww-stats-key") || ""; } catch {}
+
+function sum(rows, field) {
+  const o = {};
+  rows.forEach(r => Object.entries(r[field] || {}).forEach(([k, v]) => { o[k] = (o[k] || 0) + v; }));
+  return Object.entries(o).sort((a, b) => b[1] - a[1]);
+}
+function table(id, entries, names = {}) {
+  const max = Math.max(1, ...entries.map(e => e[1]));
+  $(id).innerHTML = entries.length
+    ? entries.map(([k, v]) => `<tr><td>${esc(names[k] || LABELS[k] || k)}</td><td class="bar"><i style="width:${(v / max * 100).toFixed(1)}%"></i></td><td class="n">${fmt(v)}</td></tr>`).join("")
+    : `<tr><td class="empty">ยังไม่มีข้อมูล</td></tr>`;
+}
+function chart(rows) {
+  const data = [...rows].reverse();                   // oldest → newest
+  const W = Math.max(560, data.length * 22), H = 220, L = 40, R = 10, T = 12, B = 28;
+  const max = Math.max(4, ...data.map(d => Math.max(d.visitors, d.pageviews)));
+  const step = Math.pow(10, Math.floor(Math.log10(max))) * (max / Math.pow(10, Math.floor(Math.log10(max))) > 5 ? 2 : 1);
+  const top = Math.ceil(max / step) * step;
+  const y = v => T + (H - T - B) * (1 - v / top);
+  const bw = (W - L - R) / data.length;
+  let g = "";
+  for (let v = 0; v <= top; v += step) g += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)"/><text x="${L - 6}" y="${y(v) + 4}" text-anchor="end">${fmt(v)}</text>`;
+  data.forEach((d, i) => {
+    const x = L + i * bw;
+    g += `<rect x="${x + bw * 0.12}" y="${y(d.pageviews)}" width="${bw * 0.76}" height="${H - B - y(d.pageviews)}" fill="var(--accent-2)" rx="2"><title>${d.day}: ${fmt(d.pageviews)} การเปิดหน้า</title></rect>`;
+    g += `<rect x="${x + bw * 0.28}" y="${y(d.visitors)}" width="${bw * 0.44}" height="${H - B - y(d.visitors)}" fill="var(--accent)" rx="2"><title>${d.day}: ${fmt(d.visitors)} ผู้เข้าชม</title></rect>`;
+    if (data.length <= 14 || i % Math.ceil(data.length / 10) === 0 || i === data.length - 1)
+      g += `<text x="${x + bw / 2}" y="${H - 8}" text-anchor="middle">${d.day.slice(8)}/${d.day.slice(5, 7)}</text>`;
+  });
+  const svg = $("chart");
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`); svg.setAttribute("width", W); svg.setAttribute("height", H);
+  svg.innerHTML = g;
+}
+
+async function load() {
+  const key = $("key").value.trim(), days = $("days").value;
+  $("err").hidden = true;
+  try {
+    const r = await fetch(`/api/stats?days=${days}`, { headers: { "X-Stats-Key": key } });
+    const j = await r.json();
+    if (!r.ok) throw new Error(r.status === 403 ? "รหัสไม่ถูกต้อง" : j.error || r.status);
+    try { localStorage.setItem("tww-stats-key", key); } catch {}
+    const rows = j.days, today = rows[0] || {};
+    const pv = rows.reduce((a, d) => a + d.pageviews, 0);
+    const ev = sum(rows, "events");
+    $("tiles").innerHTML = [
+      [fmt(today.visitors), "ผู้เข้าชมวันนี้"],
+      [fmt(j.periodVisitors), `ผู้เข้าชมไม่ซ้ำ ${days} วัน`],
+      [fmt(pv), `การเปิดหน้าเว็บ ${days} วัน`],
+      [fmt(ev.reduce((a, e) => a + e[1], 0)), `การใช้ฟีเจอร์ ${days} วัน`],
+    ].map(([b, s]) => `<div class="tile"><b>${b}</b><span>${s}</span></div>`).join("");
+    chart(rows);
+    table("ref", sum(rows, "ref"));
+    table("events", ev, EVENT_NAMES);
+    table("device", sum(rows, "device"));
+    table("lang", sum(rows, "lang"));
+    $("storage").textContent = `นับแบบไม่ระบุตัวตน ไม่ใช้คุกกี้ ไม่เก็บ IP · ผู้เข้าชมคนเดิมนับซ้ำได้ถ้ากลับมาในวันอื่น · ไม่นับบอทและรีเลย์ · ที่เก็บข้อมูล: ${j.storage}`;
+    $("out").hidden = false;
+  } catch (e) {
+    $("err").textContent = "ดูสถิติไม่ได้: " + e.message;
+    $("err").hidden = false;
+  }
+}
+$("f").onsubmit = e => { e.preventDefault(); load(); };
+$("days").onchange = () => { if ($("key").value) load(); };
+$("forget").onclick = () => { try { localStorage.removeItem("tww-stats-key"); } catch {} $("key").value = ""; $("out").hidden = true; };
+if ($("key").value) load();
+</script>
+</body>
+</html>

@@ -342,6 +342,7 @@ details.gov-block summary { cursor: pointer; }
   <section>
     <h2 data-t="srcH"></h2>
     <ul class="src-list" id="srcList"></ul>
+    <p class="hint" data-t="privacyNote"></p>
   </section>
 
   <section id="snapSec" hidden>
@@ -607,6 +608,7 @@ const I18N = {
       ["ThaiWater", "National water situation from HII", "https://www.thaiwater.net"],
       ["Thai Meteorological Department", "Official weather forecasts and warnings", "https://www.tmd.go.th"]
     ],
+    privacyNote: "This site counts visits anonymously (no cookies, no personal data) to see how it is used.",
     srcH: "Government data sources", srcList: [
       ["Hydro-Informatics Institute (HII) · ThaiWater", "river levels, rain forecast, and data relayed from the agencies below", "https://www.thaiwater.net"],
       ["Thai Meteorological Department", "weather radar, rain gauges", "https://www.tmd.go.th"],
@@ -724,6 +726,7 @@ const I18N = {
       ["ThaiWater", "สถานการณ์น้ำของประเทศจาก สสน.", "https://www.thaiwater.net"],
       ["กรมอุตุนิยมวิทยา", "พยากรณ์อากาศและประกาศเตือนภัยอย่างเป็นทางการ", "https://www.tmd.go.th"]
     ],
+    privacyNote: "เว็บไซต์นี้นับจำนวนการเข้าชมแบบไม่ระบุตัวตน (ไม่ใช้คุกกี้ ไม่เก็บข้อมูลส่วนบุคคล) เพื่อดูว่ามีการใช้งานอย่างไร",
     srcH: "แหล่งข้อมูลจากหน่วยงานรัฐ", srcList: [
       ["สถาบันสารสนเทศทรัพยากรน้ำ (สสน.) · ThaiWater", "ระดับน้ำในแม่น้ำ พยากรณ์ฝน และข้อมูลที่รวบรวมจากหน่วยงานด้านล่าง", "https://www.thaiwater.net"],
       ["กรมอุตุนิยมวิทยา", "เรดาร์ตรวจอากาศ สถานีวัดฝน", "https://www.tmd.go.th"],
@@ -756,6 +759,9 @@ const PLACES = [
   { key: "hdy", en: "Hat Yai", th: "หาดใหญ่", c: [7.01, 100.47], z: 10 },
   { key: "hkt", en: "Phuket", th: "ภูเก็ต", c: [7.95, 98.34], z: 10 },
 ];
+
+// Anonymous feature-use counter (no cookies, nothing personal): see stats.js on the server
+const ev = name => { try { navigator.sendBeacon("/api/ev?e=" + encodeURIComponent(name)); } catch {} };
 
 let lang = "th";
 try { lang = localStorage.getItem("tww-lang") || "th"; } catch {}
@@ -1023,6 +1029,7 @@ function chooseDistrict(code) {
   selDistrict = DISTRICTS.find(d => d.code === code) || null;
   if (districtOutline) { districtOutline.remove(); districtOutline = null; }
   if (selDistrict) {
+    ev("district_pick");
     document.getElementById("province").value = "";
     applyFilter();
     districtOutline = map.outline(selDistrict.polys);
@@ -1220,6 +1227,7 @@ function stopStream() {
 
 async function openCam(key) {
   const c = CAMS.find(x => x.key === key); if (!c) return;
+  ev("cam_" + c.src);
   const t = T(), v = $("camVideo"), img = $("camImg");
   map.closePopup();
   stopStream();
@@ -1349,6 +1357,7 @@ function rvPlay(on) {
   $("rvPlay").textContent = on ? "❚❚" : "▶";
   $("rvPlay").setAttribute("aria-label", on ? T().rvPause : T().rvPlayLbl);
   if (!on) return;
+  ev("radar_play");
   RV.frames.forEach(rvLayer);            // start loading every frame so the loop is smooth
   rvTimer = setInterval(() => rvShow(rvIdx + 1), 700);
 }
@@ -1800,6 +1809,7 @@ function syncOptionalButtons() {
 function onOptionalLayer(o, byUser) {
   syncOptionalButtons();
   if (!byUser) return;
+  if ($(o.cb).checked) ev(o.cb === "showRain" ? "layer_rain" : "layer_pty");
   const p = optPrefs(); p[o.cb] = $(o.cb).checked;
   try { localStorage.setItem("tww-opt-layers", JSON.stringify(p)); } catch {}
   // Pattaya cameras only show at street zoom: take the visitor there when switched on from far away
@@ -1881,6 +1891,7 @@ $("rtVeh").onclick = e => {
 };
 $("rtGo").onclick = planRoute;
 document.addEventListener("click", e => {
+  if (e.target.closest("#rtResult a.btn")) ev("share_gmaps");
   if (e.target.id === "rtClear") return resetRoute();
   const it = e.target.closest("#rtResult .item");
   if (it) map.flyTo([+it.dataset.lat, +it.dataset.lng], 16);
@@ -1890,6 +1901,7 @@ document.addEventListener("click", e => {
 document.getElementById("lang").onclick = () => {
   lang = lang === "en" ? "th" : "en";
   try { localStorage.setItem("tww-lang", lang); } catch {}
+  ev("lang_" + lang);
   renderStatic();
   renderDistrictSelect();
   if (roadData) buildRoadMarkers();

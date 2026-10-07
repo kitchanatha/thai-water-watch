@@ -112,7 +112,12 @@ async function pollTraffy() {
 }
 async function getTraffy() {
   if (Date.now() - traffyAt > 5 * 60 * 1000) {
-    if (!traffyBusy) traffyBusy = pollTraffy().finally(() => { traffyBusy = null; });
+    if (!traffyBusy) {
+      traffyBusy = pollTraffy().finally(() => { traffyBusy = null; });
+      // Traffy is slow and sometimes fails; a failed background refresh must not go unhandled
+      // (Node exits on unhandled rejections), it just keeps the reports we already have.
+      traffyBusy.catch((e) => console.warn("Traffy refresh failed:", e.message));
+    }
     if (!traffy.size) await traffyBusy;      // first load waits; later loads serve what we have
   }
   return JSON.stringify({ fetchedAt: new Date(traffyAt || Date.now()).toISOString(), windowHours: 6, reports: [...traffy.values()] });

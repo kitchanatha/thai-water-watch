@@ -94,3 +94,10 @@ in Thailand: it long-polls `/api/relay/poll` for camera ids visitors opened, fet
 BMA and uploads them to `/api/relay/upload/<id>`. Both sides share a secret: `BMA_RELAY_KEY` on Render and
 `relay.key` next to relay.js (git-ignored). Start it with `start-relay.cmd`. When the relay is off, the
 viewer links to the camera on BMA's site. `/healthz` shows whether the relay is connected.
+
+## Visitor statistics
+
+`stats.js` counts page views, unique visitors per day, device, browser language, referrer site and feature
+use, without cookies or stored IPs (a daily-rotating salted hash recognises a visitor within one day only).
+Data goes to Upstash (`tww:stats:<date>:*`, kept 120 days). The private dashboard is `/stats.html`; it needs
+`STATS_KEY` (set in Render). Bots, health checks and the relay are not counted.

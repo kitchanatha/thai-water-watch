@@ -205,6 +205,7 @@ async function handleReports(req, res, pathname) {
     if (pathname === "/api/reports" && req.method === "GET") return sendJson(res, 200, { reports: await reports.list() });
     if (pathname === "/api/reports" && req.method === "POST") {
       const out = await reports.create(await readBody(req), clientIp(req));
+      if (out.status === 201) stats.trackEvent("report_sent", req.headers["user-agent"]);
       return sendJson(res, out.status, out.body || { error: out.error });
     }
     const m = /^\/api\/reports\/([a-f0-9]{12})(\/vote)?$/.exec(pathname);
@@ -225,6 +226,7 @@ async function handleReports(req, res, pathname) {
 
 const routing = require("./routing");
 const gov = require("./gov");
+const stats = require("./stats");
 
 // Simple per-IP limiter so one visitor can't use up the free OpenRouteService quota
 const buckets = new Map();
@@ -300,6 +302,7 @@ async function handleRouting(req, res, url) {
     if (url.pathname === "/api/route" && req.method === "POST") {
       if (!allowRate("r" + ip, 20, 10 * 60 * 1000)) return sendJson(res, 429, { error: "Too many route requests. Please wait a few minutes." });
       const out = await routing.plan(await readBody(req), await allFloods());
+      if (out.status === 200) stats.trackEvent("route_planned", req.headers["user-agent"]);
       return sendJson(res, out.status, out.body || { error: out.error });
     }
     sendJson(res, 404, { error: "Not found" });
@@ -410,7 +413,20 @@ const server = http.createServer(async (req, res) => {
     }
     return;
   }
+  // Visitor statistics: feature beacons from the page, and the private stats summary
+  if (url.pathname === "/api/ev" && req.method === "POST") {
+    if (allowRate("e" + clientIp(req), 120, 10 * 60 * 1000)) stats.trackEvent(String(url.searchParams.get("e") || ""), String(req.headers["user-agent"] || ""));
+    res.writeHead(204); return res.end();
+  }
+  if (url.pathname === "/api/stats") {
+    if (!stats.enabled()) return sendJson(res, 503, { error: "Statistics are not set up yet (missing STATS_KEY)." });
+    if (!allowRate("s" + clientIp(req), 30, 60 * 1000)) return sendJson(res, 429, { error: "Too many requests" });
+    if (!stats.statsAuth(req.headers["x-stats-key"])) return sendJson(res, 403, { error: "Wrong key" });
+    try { return sendJson(res, 200, await stats.summary(+url.searchParams.get("days") || 30)); }
+    catch (e) { return sendJson(res, 502, { error: "Could not read statistics: " + e.message }); }
+  }
   if (url.pathname === "/" || url.pathname === "/index.html") {
+    stats.trackPage(req, clientIp(req));
     // The Google Maps browser key is public by design (restrict it to this site in Google Cloud).
     const config = {
       googleKey: (process.env.GOOGLE_MAPS_API_KEY || "").trim().replace(/^(["'])(.*)\1$/, "$2") || null,
@@ -424,6 +440,7 @@ const server = http.createServer(async (req, res) => {
   const STATIC = {
     "/map-adapter.js": "text/javascript", "/bangkok-districts.json": "application/json",
     "/bkk-snapshot.json": "application/json", "/flood-prone.json": "application/json",
+    "/stats.html": "text/html",
   };
   if (STATIC[url.pathname]) {
     res.writeHead(200, { "Content-Type": STATIC[url.pathname] + "; charset=utf-8", "Cache-Control": "no-cache" });
@@ -432,5 +449,9 @@ const server = http.createServer(async (req, res) => {
   res.writeHead(404);
   res.end("Not found");
 });
+
+// Safety net: a failed background fetch from one data source must not take the whole site down
+// (Node exits on unhandled promise rejections by default). Log it and keep serving.
+process.on("unhandledRejection", (e) => console.error("Unhandled rejection (kept running):", e && e.stack ? e.stack : e));
 
 server.listen(PORT, () => console.log(`Thai Water Map running at http://localhost:${PORT} (reports stored in: ${reports.storeKind()})`));
